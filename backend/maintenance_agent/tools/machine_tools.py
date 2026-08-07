@@ -1,23 +1,9 @@
-"""Fake machine tools for Phase 1 local ADK testing."""
+"""Machine tools backed by the in-memory domain store."""
 
 from __future__ import annotations
 
-
-_PUMP_04 = {
-    "machine_id": "PUMP-04",
-    "name": "Cooling Water Pump 04",
-    "machine_type": "centrifugal_pump",
-    "manufacturer": "FlowTech Industrial",
-    "model": "FT-C200",
-    "location": "Plant A / Cooling Loop 2",
-    "normal_operating_limits": {
-        "temperature_c": {"min": 40, "max": 70},
-        "vibration_mm_s": {"min": 0.5, "max": 4.5},
-        "motor_current_a": {"min": 8, "max": 12.5},
-    },
-    "status": "WARNING",
-    "notes": "Drive-end bearing area flagged for elevated vibration.",
-}
+from app.models.machine import MachineStatus
+from app.runtime import get_store
 
 
 def get_machine_context(machine_id: str) -> dict:
@@ -32,12 +18,72 @@ def get_machine_context(machine_id: str) -> dict:
     Returns:
         Machine context dictionary, or a not-found status payload.
     """
-    normalized = machine_id.strip().upper()
-    if normalized == "PUMP-04":
-        return {"status": "success", "machine": _PUMP_04}
+    store = get_store()
+    machine = store.get_machine(machine_id)
+    if machine is None:
+        return {
+            "status": "not_found",
+            "machine_id": machine_id,
+            "message": f"No machine context found for '{machine_id}'.",
+        }
 
     return {
-        "status": "not_found",
-        "machine_id": machine_id,
-        "message": f"No machine context found for '{machine_id}'.",
+        "status": "success",
+        "machine": {
+            "machine_id": machine.machine_id,
+            "name": machine.name,
+            "machine_type": machine.machine_type,
+            "manufacturer": machine.manufacturer,
+            "model": machine.model,
+            "location": machine.location,
+            "status": machine.status.value,
+            "normal_operating_limits": {
+                "temperature_c": {"max": machine.temperature_limit},
+                "vibration_mm_s": {"max": machine.vibration_limit},
+                "motor_current_a": {"max": machine.motor_current_limit},
+            },
+            "notes": machine.notes,
+        },
+    }
+
+
+def update_machine_status(machine_id: str, status: str) -> dict:
+    """Update the operational status of a machine.
+
+    Use after diagnosing an incident to reflect health, for example
+    MAINTENANCE_REQUIRED when a high-severity fault needs repair.
+
+    Args:
+        machine_id: Machine identifier, for example "PUMP-04".
+        status: One of HEALTHY, MONITORING, WARNING, MAINTENANCE_REQUIRED,
+            OUT_OF_SERVICE.
+
+    Returns:
+        Updated machine status payload, or an error payload.
+    """
+    store = get_store()
+    machine = store.get_machine(machine_id)
+    if machine is None:
+        return {
+            "status": "not_found",
+            "machine_id": machine_id,
+            "message": f"No machine found for '{machine_id}'.",
+        }
+
+    normalized = status.strip().upper()
+    try:
+        machine.status = MachineStatus(normalized)
+    except ValueError:
+        allowed = ", ".join(s.value for s in MachineStatus)
+        return {
+            "status": "error",
+            "machine_id": machine_id,
+            "message": f"Invalid status '{status}'. Allowed: {allowed}.",
+        }
+
+    store.upsert_machine(machine)
+    return {
+        "status": "success",
+        "machine_id": machine.machine_id,
+        "new_status": machine.status.value,
     }

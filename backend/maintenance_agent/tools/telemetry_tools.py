@@ -1,52 +1,38 @@
-"""Fake telemetry tools for Phase 1 local ADK testing."""
+"""Telemetry tools backed by the in-memory domain store."""
 
 from __future__ import annotations
 
+from app.models.telemetry import TelemetrySample
+from app.runtime import get_store
 
-_PUMP_04_HISTORY = {
-    "machine_id": "PUMP-04",
-    "samples": [
-        {
-            "timestamp": "2026-08-07T08:00:00Z",
-            "temperature_c": 62.0,
-            "vibration_mm_s": 3.1,
-            "motor_current_a": 11.0,
-        },
-        {
-            "timestamp": "2026-08-07T09:00:00Z",
-            "temperature_c": 66.0,
-            "vibration_mm_s": 3.8,
-            "motor_current_a": 11.5,
-        },
-        {
-            "timestamp": "2026-08-07T10:00:00Z",
-            "temperature_c": 71.0,
-            "vibration_mm_s": 5.4,
-            "motor_current_a": 12.8,
-        },
-        {
-            "timestamp": "2026-08-07T11:00:00Z",
-            "temperature_c": 78.0,
-            "vibration_mm_s": 7.2,
-            "motor_current_a": 13.5,
-        },
-        {
-            "timestamp": "2026-08-07T12:00:00Z",
-            "temperature_c": 86.0,
-            "vibration_mm_s": 8.7,
-            "motor_current_a": 14.0,
-        },
-    ],
-    "trend": {
-        "temperature_c": "increasing",
-        "vibration_mm_s": "increasing_sharply",
-        "motor_current_a": "increasing",
-        "summary": (
-            "Vibration, temperature, and motor current are all rising. "
-            "Latest vibration 8.7 mm/s and temperature 86 C exceed normal limits."
-        ),
-    },
-}
+
+def _trend_label(values: list[float]) -> str:
+    if len(values) < 2:
+        return "insufficient_data"
+    delta = values[-1] - values[0]
+    if delta > 2.0:
+        return "increasing_sharply" if delta > 5.0 else "increasing"
+    if delta < -2.0:
+        return "decreasing"
+    return "stable"
+
+
+def _build_trend(samples: list[TelemetrySample]) -> dict:
+    temps = [s.temperature_c for s in samples]
+    vibs = [s.vibration_mm_s for s in samples]
+    currents = [s.motor_current_a for s in samples]
+    latest = samples[-1]
+    summary_parts = [
+        f"Latest vibration {latest.vibration_mm_s} mm/s,",
+        f"temperature {latest.temperature_c} C,",
+        f"motor current {latest.motor_current_a} A.",
+    ]
+    return {
+        "temperature_c": _trend_label(temps),
+        "vibration_mm_s": _trend_label(vibs),
+        "motor_current_a": _trend_label(currents),
+        "summary": " ".join(summary_parts),
+    }
 
 
 def get_telemetry_history(machine_id: str) -> dict:
@@ -61,12 +47,32 @@ def get_telemetry_history(machine_id: str) -> dict:
     Returns:
         Telemetry history dictionary, or a not-found status payload.
     """
-    normalized = machine_id.strip().upper()
-    if normalized == "PUMP-04":
-        return {"status": "success", "telemetry": _PUMP_04_HISTORY}
+    store = get_store()
+    machine = store.get_machine(machine_id)
+    samples = store.get_telemetry_for_machine(machine_id)
+    if machine is None and not samples:
+        return {
+            "status": "not_found",
+            "machine_id": machine_id,
+            "message": f"No telemetry history found for '{machine_id}'.",
+        }
+
+    ordered = sorted(samples, key=lambda s: s.timestamp)
+    payload_samples = [
+        {
+            "timestamp": sample.timestamp.isoformat().replace("+00:00", "Z"),
+            "temperature_c": sample.temperature_c,
+            "vibration_mm_s": sample.vibration_mm_s,
+            "motor_current_a": sample.motor_current_a,
+        }
+        for sample in ordered
+    ]
 
     return {
-        "status": "not_found",
-        "machine_id": machine_id,
-        "message": f"No telemetry history found for '{machine_id}'.",
+        "status": "success",
+        "telemetry": {
+            "machine_id": machine_id.strip().upper(),
+            "samples": payload_samples,
+            "trend": _build_trend(ordered) if ordered else {},
+        },
     }

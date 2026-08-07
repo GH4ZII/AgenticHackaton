@@ -1,4 +1,4 @@
-"""Fake seed data for Phase 2 local development."""
+"""Fake seed data for Phase 2/3 local development."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from app.store.memory_store import MemoryStore
 def seed_store(store: MemoryStore | None = None) -> MemoryStore:
     """Populate an in-memory store with PUMP-04 demo data.
 
-    Machine starts HEALTHY; seed telemetry includes the bearing-degradation
-    trend used in the hackathon demo scenario.
+    Machine starts in WARNING because seed telemetry already shows
+    bearing-degradation readings above normal limits.
     """
     if store is None:
         store = MemoryStore()
@@ -28,11 +28,11 @@ def seed_store(store: MemoryStore | None = None) -> MemoryStore:
         manufacturer="FlowTech Industrial",
         model="FT-C200",
         location="Plant A / Cooling Loop 2",
-        status=MachineStatus.HEALTHY,
+        status=MachineStatus.WARNING,
         temperature_limit=70.0,
         vibration_limit=4.5,
         motor_current_limit=12.5,
-        notes="Drive-end bearing is a known wear point on FT-C200 units.",
+        notes="Drive-end bearing area flagged for elevated vibration.",
     )
     store.upsert_machine(pump_04)
 
@@ -71,6 +71,73 @@ def seed_store(store: MemoryStore | None = None) -> MemoryStore:
             stock=2,
             location="Warehouse A / Shelf B-14",
         )
+    )
+
+    store.set_maintenance_history(
+        "PUMP-04",
+        [
+            {
+                "date": "2026-02-12",
+                "type": "inspection",
+                "summary": "Routine vibration survey; drive-end bearing within limits.",
+                "technician": "A. Berg",
+            },
+            {
+                "date": "2025-11-03",
+                "type": "component_replacement",
+                "summary": "Replaced non-drive-end seal kit FT-C200-SEAL.",
+                "technician": "M. Olsen",
+            },
+            {
+                "date": "2025-06-18",
+                "type": "fault",
+                "summary": "Minor cavitation event; cleaned strainer and reset alarms.",
+                "technician": "A. Berg",
+            },
+            {
+                "date": "2026-07-01",
+                "type": "inspection",
+                "summary": "Last inspection noted early bearing noise under load.",
+                "technician": "K. Nilsen",
+            },
+        ],
+    )
+
+    store.set_manual_sections(
+        "PUMP-04",
+        [
+            {
+                "section_id": "vib-limits",
+                "title": "FT-C200 vibration limits",
+                "tags": ["vibration", "bearing", "limits"],
+                "content": (
+                    "Normal overall vibration is 0.5–4.5 mm/s. Sustained readings "
+                    "above 7.0 mm/s indicate probable drive-end bearing degradation. "
+                    "Investigate immediately if temperature also rises."
+                ),
+            },
+            {
+                "section_id": "bearing-failure",
+                "title": "Drive-end bearing failure symptoms",
+                "tags": ["bearing", "failure", "temperature", "current"],
+                "content": (
+                    "Typical symptoms: rising vibration, rising bearing housing "
+                    "temperature, and gradual motor current increase under constant "
+                    "load. Recommended action: schedule bearing replacement "
+                    "(part 6205-2RS) and notify on-call technician."
+                ),
+            },
+            {
+                "section_id": "safety",
+                "title": "Safety and shutdown policy",
+                "tags": ["safety", "shutdown", "critical"],
+                "content": (
+                    "Do not autonomously shut down the pump. For CRITICAL severity, "
+                    "recommend shutdown and request human approval before any "
+                    "isolation action."
+                ),
+            },
+        ],
     )
 
     return store
