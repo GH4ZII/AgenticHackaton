@@ -20,7 +20,7 @@ def search_machine_manual(machine_id: str, query: str) -> dict:
     """
     store = get_store()
     machine = store.get_machine(machine_id)
-    if machine is None and machine_id.strip().upper() not in store.manuals:
+    if machine is None and not store.has_manual(machine_id):
         return {
             "status": "not_found",
             "machine_id": machine_id,

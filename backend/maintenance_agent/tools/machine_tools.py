@@ -1,6 +1,8 @@
-"""Machine tools backed by the in-memory domain store."""
+"""Machine tools backed by the domain store."""
 
 from __future__ import annotations
+
+from datetime import datetime, timezone
 
 from app.models.machine import MachineStatus
 from app.runtime import get_store
@@ -82,6 +84,14 @@ def update_machine_status(machine_id: str, status: str) -> dict:
         }
 
     store.upsert_machine(machine)
+    store.add_agent_action(
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "machine_id": machine.machine_id,
+            "action": "machine_status_updated",
+            "detail": f"Machine status set to {machine.status.value}",
+        }
+    )
     return {
         "status": "success",
         "machine_id": machine.machine_id,

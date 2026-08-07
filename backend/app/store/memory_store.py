@@ -23,6 +23,7 @@ class MemoryStore:
         self.maintenance_history: dict[str, list[dict[str, Any]]] = {}
         self.manuals: dict[str, list[dict[str, Any]]] = {}
         self.notifications: list[dict[str, Any]] = []
+        self.agent_actions: list[dict[str, Any]] = []
 
     def upsert_machine(self, machine: Machine) -> Machine:
         self.machines[machine.machine_id] = machine
@@ -63,6 +64,9 @@ class MemoryStore:
     def list_work_orders(self) -> list[WorkOrder]:
         return list(self.work_orders.values())
 
+    def get_work_order(self, work_order_id: str) -> WorkOrder | None:
+        return self.work_orders.get(work_order_id)
+
     def upsert_inventory_item(self, item: InventoryItem) -> InventoryItem:
         self.inventory[item.part_id] = item
         return item
@@ -94,6 +98,9 @@ class MemoryStore:
     ) -> None:
         self.manuals[machine_id.strip().upper()] = sections
 
+    def has_manual(self, machine_id: str) -> bool:
+        return machine_id.strip().upper() in self.manuals
+
     def search_manual(self, machine_id: str, query: str) -> list[dict[str, Any]]:
         sections = self.manuals.get(machine_id.strip().upper(), [])
         q = query.strip().lower()
@@ -114,6 +121,13 @@ class MemoryStore:
     def list_notifications(self) -> list[dict[str, Any]]:
         return list(self.notifications)
 
+    def add_agent_action(self, action: dict[str, Any]) -> dict[str, Any]:
+        self.agent_actions.append(action)
+        return action
+
+    def list_agent_actions(self) -> list[dict[str, Any]]:
+        return list(self.agent_actions)
+
     def clear(self) -> None:
         self.machines.clear()
         self.telemetry.clear()
@@ -123,3 +137,4 @@ class MemoryStore:
         self.maintenance_history.clear()
         self.manuals.clear()
         self.notifications.clear()
+        self.agent_actions.clear()

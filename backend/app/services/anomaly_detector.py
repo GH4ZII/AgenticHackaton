@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from app.store.protocol import DomainStore
 from app.models.incident import Incident, IncidentStatus, Severity
 from app.models.machine import Machine, MachineStatus
 from app.models.telemetry import TelemetrySample
-from app.store.memory_store import MemoryStore
 
 
 @dataclass
@@ -48,7 +48,7 @@ def _estimate_severity(reasons: list[str]) -> Severity:
 
 
 def detect_anomaly(
-    store: MemoryStore,
+    store: DomainStore,
     sample: TelemetrySample,
     *,
     persist_sample: bool = True,
@@ -96,7 +96,7 @@ def detect_anomaly(
     return AnomalyResult(is_anomalous=True, reasons=reasons, incident=incident)
 
 
-def evaluate_latest_for_machine(store: MemoryStore, machine_id: str) -> AnomalyResult:
+def evaluate_latest_for_machine(store: DomainStore, machine_id: str) -> AnomalyResult:
     """Run detection on the most recent stored telemetry sample for a machine."""
     samples = store.get_telemetry_for_machine(machine_id)
     if not samples:

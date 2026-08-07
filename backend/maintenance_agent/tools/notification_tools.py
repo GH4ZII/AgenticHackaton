@@ -47,6 +47,14 @@ def notify_technician(
         "channel": "simulated",
     }
     store.add_notification(notification)
+    store.add_agent_action(
+        {
+            "timestamp": notification["created_at"],
+            "machine_id": machine.machine_id,
+            "action": "technician_notified",
+            "detail": f"Notified {technician}: {message[:120]}",
+        }
+    )
 
     return {
         "status": "success",

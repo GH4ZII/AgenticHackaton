@@ -1,8 +1,9 @@
-"""Fake seed data for Phase 2/3 local development."""
+"""Fake seed data for local development and Firestore bootstrap."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
 from app.models.inventory import InventoryItem
 from app.models.machine import Machine, MachineStatus
@@ -10,17 +11,8 @@ from app.models.telemetry import TelemetrySample
 from app.store.memory_store import MemoryStore
 
 
-def seed_store(store: MemoryStore | None = None) -> MemoryStore:
-    """Populate an in-memory store with PUMP-04 demo data.
-
-    Machine starts in WARNING because seed telemetry already shows
-    bearing-degradation readings above normal limits.
-    """
-    if store is None:
-        store = MemoryStore()
-    else:
-        store.clear()
-
+def _seed_into(store: Any) -> Any:
+    """Write PUMP-04 demo data into any store with the domain API."""
     pump_04 = Machine(
         machine_id="PUMP-04",
         name="Cooling Water Pump 04",
@@ -140,6 +132,31 @@ def seed_store(store: MemoryStore | None = None) -> MemoryStore:
         ],
     )
 
+    return store
+
+
+def seed_store(store: MemoryStore | None = None) -> MemoryStore:
+    """Populate an in-memory store with PUMP-04 demo data.
+
+    Machine starts in WARNING because seed telemetry already shows
+    bearing-degradation readings above normal limits.
+    """
+    if store is None:
+        store = MemoryStore()
+    else:
+        store.clear()
+    return _seed_into(store)
+
+
+def seed_if_empty(store: Any) -> Any:
+    """Seed demo data only when the store has no machines yet."""
+    is_empty = getattr(store, "is_empty", None)
+    if callable(is_empty):
+        empty = is_empty()
+    else:
+        empty = store.get_machine("PUMP-04") is None
+    if empty:
+        return _seed_into(store)
     return store
 
 

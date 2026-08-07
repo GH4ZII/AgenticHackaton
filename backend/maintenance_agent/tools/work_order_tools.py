@@ -60,6 +60,14 @@ def create_work_order(
         created_at=datetime.now(timezone.utc),
     )
     store.upsert_work_order(work_order)
+    store.add_agent_action(
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "machine_id": machine.machine_id,
+            "action": "work_order_created",
+            "detail": f"Work order {work_order.work_order_id} created: {title}",
+        }
+    )
 
     return {
         "status": "success",
