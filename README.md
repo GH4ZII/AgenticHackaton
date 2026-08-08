@@ -55,6 +55,10 @@ Simulator publishes telemetry to Google Pub/Sub topic `machine-telemetry-events`
 
 React dashboard that shows fleet health, incident detail, agent activity timeline, work orders, and telemetry charts.
 
+### Phase 8 — Closed loop
+
+Technician marks a work order **completed** → healthy telemetry is written → agent verifies → incident becomes `RESOLVED` and machine returns to `HEALTHY`.
+
 ## Setup
 
 ```powershell
@@ -163,6 +167,18 @@ Open `http://localhost:5173`, click **Load demo state**, then open the incident 
 
 Vite proxies `/api` to `http://127.0.0.1:8081`.
 
+## Run Phase 8 (closed loop)
+
+From `backend/`:
+
+```powershell
+python run_phase8.py
+```
+
+Expected: demo work order is completed, healthy telemetry is injected, agent verifies, incident is `RESOLVED`, machine is `HEALTHY`.
+
+In the dashboard: Load demo state → Work orders → **Mark as completed**.
+
 ## Run Phase 1 / Phase 3 (AI agent)
 
 From `backend/`:
@@ -203,7 +219,7 @@ backend/
     services/
     api/                 # FastAPI: events, machines, incidents, demo, ...
     main.py
-  run_phase1.py … run_phase6.py
+  run_phase1.py … run_phase8.py
 
 frontend/
   src/

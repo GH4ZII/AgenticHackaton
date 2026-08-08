@@ -123,4 +123,16 @@ export const api = {
       created_incident: boolean
       created_work_order: boolean
     }>('/api/demo/seed', { method: 'POST' }),
+  completeWorkOrder: (id: string) =>
+    request<{
+      status: string
+      message: string
+      already_completed: boolean
+      agent_invoked: boolean
+      machine_status: string | null
+      work_order: WorkOrder
+      incident: Incident | null
+      tools_called: string[]
+      agent_summary: string | null
+    }>(`/api/work-orders/${id}/complete`, { method: 'POST' }),
 }

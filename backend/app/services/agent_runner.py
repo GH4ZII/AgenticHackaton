@@ -29,14 +29,27 @@ def build_anomaly_prompt(machine_id: str, incident: Incident) -> str:
     )
 
 
-async def run_maintenance_agent(
+def build_verification_prompt(
     machine_id: str,
     incident: Incident,
+    work_order_id: str,
+) -> str:
+    """Build the post-repair verification prompt."""
+    return (
+        f"Work order {work_order_id} for {machine_id} was marked COMPLETED. "
+        f"Incident {incident.incident_id} needs repair verification. "
+        "Retrieve current machine context and telemetry. "
+        "If readings are within normal operating limits, resolve the incident "
+        "and set machine status to HEALTHY. "
+        "If still abnormal, do not resolve and explain why."
+    )
+
+
+async def _run_agent_with_prompt(
+    prompt: str,
     *,
-    user_id: str = "incident_workflow",
+    user_id: str,
 ) -> AgentRunResult:
-    """Invoke the ADK maintenance agent for an anomaly incident."""
-    prompt = build_anomaly_prompt(machine_id, incident)
     runner = InMemoryRunner(agent=root_agent, app_name="maintenance_agent")
     session = await runner.session_service.create_session(
         app_name="maintenance_agent",
@@ -67,3 +80,26 @@ async def run_maintenance_agent(
         tool_calls=tool_calls,
         final_text="\n".join(final_text_parts).strip(),
     )
+
+
+async def run_maintenance_agent(
+    machine_id: str,
+    incident: Incident,
+    *,
+    user_id: str = "incident_workflow",
+) -> AgentRunResult:
+    """Invoke the ADK maintenance agent for an anomaly incident."""
+    prompt = build_anomaly_prompt(machine_id, incident)
+    return await _run_agent_with_prompt(prompt, user_id=user_id)
+
+
+async def run_verification_agent(
+    machine_id: str,
+    incident: Incident,
+    work_order_id: str,
+    *,
+    user_id: str = "repair_verification",
+) -> AgentRunResult:
+    """Invoke the ADK agent to verify post-repair machine health."""
+    prompt = build_verification_prompt(machine_id, incident, work_order_id)
+    return await _run_agent_with_prompt(prompt, user_id=user_id)

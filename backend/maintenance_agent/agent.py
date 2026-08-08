@@ -8,6 +8,7 @@ from .tools import (
     get_maintenance_history,
     get_telemetry_history,
     notify_technician,
+    resolve_incident,
     search_machine_manual,
     update_machine_status,
 )
@@ -28,5 +29,6 @@ root_agent = Agent(
         create_work_order,
         update_machine_status,
         notify_technician,
+        resolve_incident,
     ],
 )

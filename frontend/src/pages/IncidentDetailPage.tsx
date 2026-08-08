@@ -18,10 +18,12 @@ export function IncidentDetailPage() {
   const [actions, setActions] = useState<AgentAction[]>([])
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!incidentId) return
-    api
+  const load = () => {
+    if (!incidentId) return Promise.resolve()
+    return api
       .incident(incidentId)
       .then((data) => {
         setIncident(data.incident)
@@ -30,9 +32,31 @@ export function IncidentDetailPage() {
         setInventory(data.inventory)
       })
       .catch((err: Error) => setError(err.message))
+  }
+
+  useEffect(() => {
+    void load()
   }, [incidentId])
 
-  if (error) {
+  const onComplete = async (workOrderId: string) => {
+    setBusyId(workOrderId)
+    setMessage(null)
+    setError(null)
+    try {
+      const result = await api.completeWorkOrder(workOrderId)
+      setMessage(
+        `${result.message} Machine: ${result.machine_status || 'n/a'}; ` +
+          `incident: ${result.incident?.status || 'n/a'}.`,
+      )
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Complete failed')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (error && !incident) {
     return <p className="error">{error}</p>
   }
   if (!incident) {
@@ -62,6 +86,9 @@ export function IncidentDetailPage() {
           <StatusBadge value={incident.status} />
         </div>
       </section>
+
+      {message ? <p className="seed-msg mono">{message}</p> : null}
+      {error ? <p className="error">{error}</p> : null}
 
       <div className="split">
         <section className="panel stack">
@@ -105,15 +132,31 @@ export function IncidentDetailPage() {
           {workOrders.length === 0 ? (
             <p className="muted">No work orders linked yet.</p>
           ) : (
-            workOrders.map((wo) => (
-              <div key={wo.work_order_id} className="stack">
-                <strong className="mono">{wo.work_order_id}</strong>
-                <div>{wo.title}</div>
-                <StatusBadge value={wo.priority} label={`Priority ${wo.priority}`} />
-                <StatusBadge value={wo.status} />
-                <p className="muted">{wo.recommended_action}</p>
-              </div>
-            ))
+            workOrders.map((wo) => {
+              const canComplete =
+                wo.status === 'OPEN' || wo.status === 'IN_PROGRESS'
+              return (
+                <div key={wo.work_order_id} className="stack">
+                  <strong className="mono">{wo.work_order_id}</strong>
+                  <div>{wo.title}</div>
+                  <StatusBadge value={wo.priority} label={`Priority ${wo.priority}`} />
+                  <StatusBadge value={wo.status} />
+                  <p className="muted">{wo.recommended_action}</p>
+                  {canComplete ? (
+                    <button
+                      className="seed-btn"
+                      type="button"
+                      disabled={busyId === wo.work_order_id}
+                      onClick={() => void onComplete(wo.work_order_id)}
+                    >
+                      {busyId === wo.work_order_id
+                        ? 'Verifying…'
+                        : 'Mark as completed'}
+                    </button>
+                  ) : null}
+                </div>
+              )
+            })
           )}
 
           <h2>Spare parts</h2>
