@@ -147,8 +147,10 @@ Terminal 1 — API (from `backend/`):
 
 ```powershell
 $env:USE_FIRESTORE="false"
-uvicorn app.main:app --reload --port 8080
+uvicorn app.main:app --reload --port 8081
 ```
+
+(Use **8081** if 8080 is taken — e.g. by Apache/`httpd` on Windows.)
 
 Terminal 2 — UI (from `frontend/`):
 
@@ -159,7 +161,7 @@ npm run dev
 
 Open `http://localhost:5173`, click **Load demo state**, then open the incident page to see severity, agent summary, timeline, and work order.
 
-Vite proxies `/api` to `http://127.0.0.1:8080`.
+Vite proxies `/api` to `http://127.0.0.1:8081`.
 
 ## Run Phase 1 / Phase 3 (AI agent)
 
