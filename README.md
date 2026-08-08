@@ -63,6 +63,14 @@ Technician marks a work order **completed** → healthy telemetry is written →
 
 On **CRITICAL** severity the agent must call `request_shutdown_approval` — it never shuts down alone. Dashboard shows **Approve** / **Reject**: Approve sets the machine `OUT_OF_SERVICE`; Reject keeps `MAINTENANCE_REQUIRED`.
 
+### Phase 10 — Cloud deployment
+
+Backend + dashboard deploy to **Google Cloud Run** (same service). Firestore, Vertex AI (Gemini), and Pub/Sub push are wired in production.
+
+Live service (project `maintenance-agent-hack`, region `europe-west1`):
+
+https://maintenance-agent-786907268086.europe-west1.run.app
+
 ## Setup
 
 ```powershell
@@ -92,6 +100,37 @@ gcloud firestore databases create --database="(default)" --location=eur3 --type=
 ```
 
 Billing must be enabled on the project.
+
+## Deploy to Cloud Run (Phase 10)
+
+From the repo root (requires `gcloud` auth and billing):
+
+```powershell
+.\deploy\deploy-cloudrun.ps1
+```
+
+Or manually:
+
+```powershell
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com --project maintenance-agent-hack
+
+gcloud run deploy maintenance-agent `
+  --source=. `
+  --region=europe-west1 `
+  --project=maintenance-agent-hack `
+  --service-account=maintenance-agent-run@maintenance-agent-hack.iam.gserviceaccount.com `
+  --allow-unauthenticated `
+  --min-instances=0 `
+  --max-instances=3 `
+  --cpu=1 `
+  --memory=1Gi `
+  --timeout=300 `
+  --set-env-vars="GOOGLE_GENAI_USE_VERTEXAI=TRUE,GOOGLE_CLOUD_PROJECT=maintenance-agent-hack,GOOGLE_CLOUD_LOCATION=eu,USE_FIRESTORE=true"
+```
+
+The image builds the React dashboard and serves it from FastAPI (`/`), with APIs under `/api` and telemetry at `POST /events/telemetry`.
+
+Pub/Sub topic `machine-telemetry-events` pushes to the Cloud Run URL. Cloud Logging shows request and agent execution under the `maintenance-agent` service.
 
 ## Run the API + dashboard
 
@@ -155,6 +194,9 @@ adk web --port 8000
 ## Project layout
 
 ```text
+Dockerfile               # Multi-stage: frontend build + FastAPI for Cloud Run
+deploy/
+  deploy-cloudrun.ps1    # Enable APIs, IAM, deploy, Pub/Sub push sub
 backend/
   maintenance_agent/     # ADK agent + tools
   app/
@@ -162,8 +204,7 @@ backend/
     store/               # MemoryStore + FirestoreStore
     services/
     api/                 # FastAPI: events, machines, incidents, demo, ...
-    main.py
-
+    main.py              # API + static dashboard in production
 frontend/
   src/
     api/client.ts

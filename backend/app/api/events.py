@@ -67,7 +67,10 @@ async def receive_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=f"Invalid telemetry event: {exc}") from exc
 
     store = get_store()
-    result = await handle_telemetry(store, sample)
+    try:
+        result = await handle_telemetry(store, sample)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
         "status": "ok",
