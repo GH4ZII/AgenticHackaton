@@ -132,6 +132,17 @@ The image builds the React dashboard and serves it from FastAPI (`/`), with APIs
 
 Pub/Sub topic `machine-telemetry-events` pushes to the Cloud Run URL. Cloud Logging shows request and agent execution under the `maintenance-agent` service.
 
+## Run tests (Phase 11)
+
+From `backend/`:
+
+```powershell
+pip install -r requirements.txt
+pytest
+```
+
+Tests use in-memory store only (no Firestore / Gemini). Agent calls are mocked.
+
 ## Run the API + dashboard
 
 Terminal 1 — API (from `backend/`):
