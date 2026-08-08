@@ -47,6 +47,10 @@ Abnormal telemetry alone starts the agent — no manual «Investigate PUMP-04.»
 
 Flow: telemetry → anomaly detector → new incident → ADK agent auto-runs → diagnosis / inventory / work order / notification.
 
+### Phase 6 — Pub/Sub (needs GCP + Gemini)
+
+Simulator publishes telemetry to Google Pub/Sub topic `machine-telemetry-events`. Backend pulls (or receives push on `POST /events/telemetry`) and runs the Phase 5 workflow.
+
 ## Setup
 
 ```powershell
@@ -68,12 +72,14 @@ gcloud auth application-default login
 gcloud config set project <PROJECT_ID>
 ```
 
-Enable APIs and create Firestore (once per project):
+Enable APIs (once per project):
 
 ```powershell
-gcloud services enable aiplatform.googleapis.com firestore.googleapis.com --project <PROJECT_ID>
+gcloud services enable aiplatform.googleapis.com firestore.googleapis.com pubsub.googleapis.com --project <PROJECT_ID>
 gcloud firestore databases create --database="(default)" --location=eur3 --type=firestore-native --project <PROJECT_ID>
 ```
+
+Pub/Sub topic/subscription are created automatically by `run_phase6.py` if missing.
 
 Billing must be enabled on the project.
 
@@ -113,6 +119,24 @@ python run_phase5.py
 
 Expected: an abnormal PUMP-04 sample creates an incident and automatically invokes the agent (work order / notify / status). A second abnormal sample does not re-run the agent (idempotent).
 
+## Run Phase 6 (Pub/Sub → workflow)
+
+From `backend/`:
+
+```powershell
+python run_phase6.py
+```
+
+Expected: publishes a BEARING_DEGRADATION event to Pub/Sub, pulls it, runs the full incident workflow, and invokes the agent.
+
+Optional HTTP API (push-ready for later Cloud Run):
+
+```powershell
+uvicorn app.main:app --reload --port 8080
+```
+
+Then `POST /events/telemetry` with raw JSON or a Pub/Sub push envelope.
+
 ## Run Phase 1 / Phase 3 (AI agent)
 
 From `backend/`:
@@ -150,7 +174,9 @@ backend/
   app/
     models/              # Machine, Telemetry, Incident, WorkOrder, Inventory
     store/               # MemoryStore + FirestoreStore
-    services/            # anomaly_detector, agent_runner, incident_workflow, firestore
+    services/            # anomaly, agent_runner, workflow, pubsub, simulator, firestore
+    api/                 # FastAPI routes (events)
+    main.py              # FastAPI app
     seed.py              # Fake PUMP-04 demo data
     runtime.py           # Shared store singleton (memory or Firestore)
   run_phase1.py
@@ -158,4 +184,5 @@ backend/
   run_phase3.py
   run_phase4.py
   run_phase5.py
+  run_phase6.py
 ```
