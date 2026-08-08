@@ -8,6 +8,7 @@ from typing import Any
 from google.cloud import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+from app.models.approval import ApprovalRequest
 from app.models.incident import Incident, IncidentStatus
 from app.models.inventory import InventoryItem
 from app.models.machine import Machine
@@ -235,6 +236,23 @@ class FirestoreStore:
     def list_agent_actions(self) -> list[dict[str, Any]]:
         return [doc.to_dict() or {} for doc in self._db.collection("agent_actions").stream()]
 
+    def upsert_approval(self, approval: ApprovalRequest) -> ApprovalRequest:
+        data = _to_plain(approval.model_dump(mode="json"))
+        self._db.collection("approval_requests").document(approval.approval_id).set(data)
+        return approval
+
+    def get_approval(self, approval_id: str) -> ApprovalRequest | None:
+        doc = self._db.collection("approval_requests").document(approval_id).get()
+        if not doc.exists:
+            return None
+        return ApprovalRequest.model_validate(doc.to_dict())
+
+    def list_approvals(self) -> list[ApprovalRequest]:
+        return [
+            ApprovalRequest.model_validate(doc.to_dict())
+            for doc in self._db.collection("approval_requests").stream()
+        ]
+
     def is_empty(self) -> bool:
         """True when no machines exist yet (used for idempotent seed)."""
         docs = self._db.collection("machines").limit(1).stream()
@@ -252,6 +270,7 @@ class FirestoreStore:
             "manuals",
             "notifications",
             "agent_actions",
+            "approval_requests",
         ):
             self._delete_collection(name)
 

@@ -65,6 +65,17 @@ export type AgentAction = {
   detail?: string
 }
 
+export type ApprovalRequest = {
+  approval_id: string
+  incident_id: string
+  machine_id: string
+  reason: string
+  status: string
+  created_at: string
+  resolved_at?: string | null
+  resolved_by?: string | null
+}
+
 export type DashboardSummary = {
   total_machines: number
   healthy_machines: number
@@ -123,6 +134,35 @@ export const api = {
       created_incident: boolean
       created_work_order: boolean
     }>('/api/demo/seed', { method: 'POST' }),
+  seedCritical: () =>
+    request<{
+      status: string
+      incident_id: string
+      approval_id: string
+      approval_status: string
+      machine_status: string
+      shutdown_executed: boolean
+    }>('/api/demo/seed-critical', { method: 'POST' }),
+  listApprovals: () =>
+    request<{ approvals: ApprovalRequest[]; count: number }>('/api/approvals'),
+  pendingApprovals: () =>
+    request<{ approvals: ApprovalRequest[]; count: number }>(
+      '/api/approvals/pending',
+    ),
+  approve: (id: string) =>
+    request<{
+      status: string
+      message: string
+      approval: ApprovalRequest
+      machine: Machine
+    }>(`/api/approvals/${id}/approve`, { method: 'POST' }),
+  reject: (id: string) =>
+    request<{
+      status: string
+      message: string
+      approval: ApprovalRequest
+      machine: Machine | null
+    }>(`/api/approvals/${id}/reject`, { method: 'POST' }),
   completeWorkOrder: (id: string) =>
     request<{
       status: string

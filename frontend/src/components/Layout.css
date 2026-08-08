@@ -79,6 +79,23 @@
   transition: transform 0.18s ease, background 0.18s ease;
 }
 
+.seed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.seed-btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.seed-btn-ghost:hover:not(:disabled) {
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--teal-deep);
+}
+
 .seed-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   background: var(--teal-deep);
@@ -117,6 +134,10 @@
   }
 
   .seed-btn {
+    width: 100%;
+  }
+
+  .seed-actions {
     width: 100%;
   }
 }

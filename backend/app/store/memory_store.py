@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.models.approval import ApprovalRequest
 from app.models.incident import Incident, IncidentStatus
 from app.models.inventory import InventoryItem
 from app.models.machine import Machine
@@ -24,6 +25,7 @@ class MemoryStore:
         self.manuals: dict[str, list[dict[str, Any]]] = {}
         self.notifications: list[dict[str, Any]] = []
         self.agent_actions: list[dict[str, Any]] = []
+        self.approvals: dict[str, ApprovalRequest] = {}
 
     def upsert_machine(self, machine: Machine) -> Machine:
         self.machines[machine.machine_id] = machine
@@ -128,6 +130,16 @@ class MemoryStore:
     def list_agent_actions(self) -> list[dict[str, Any]]:
         return list(self.agent_actions)
 
+    def upsert_approval(self, approval: ApprovalRequest) -> ApprovalRequest:
+        self.approvals[approval.approval_id] = approval
+        return approval
+
+    def get_approval(self, approval_id: str) -> ApprovalRequest | None:
+        return self.approvals.get(approval_id)
+
+    def list_approvals(self) -> list[ApprovalRequest]:
+        return list(self.approvals.values())
+
     def clear(self) -> None:
         self.machines.clear()
         self.telemetry.clear()
@@ -138,3 +150,4 @@ class MemoryStore:
         self.manuals.clear()
         self.notifications.clear()
         self.agent_actions.clear()
+        self.approvals.clear()

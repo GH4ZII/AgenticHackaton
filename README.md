@@ -59,6 +59,10 @@ React dashboard that shows fleet health, incident detail, agent activity timelin
 
 Technician marks a work order **completed** → healthy telemetry is written → agent verifies → incident becomes `RESOLVED` and machine returns to `HEALTHY`.
 
+### Phase 9 — Safety / human approval
+
+On **CRITICAL** severity the agent must call `request_shutdown_approval` — it never shuts down alone. Dashboard shows **Approve** / **Reject**: Approve sets the machine `OUT_OF_SERVICE`; Reject keeps `MAINTENANCE_REQUIRED`.
+
 ## Setup
 
 ```powershell
@@ -179,6 +183,22 @@ Expected: demo work order is completed, healthy telemetry is injected, agent ver
 
 In the dashboard: Load demo state → Work orders → **Mark as completed**.
 
+## Run Phase 9 (human approval)
+
+From `backend/`:
+
+```powershell
+python run_phase9.py
+```
+
+Expected: seed-critical leaves the machine in `MAINTENANCE_REQUIRED` with a PENDING approval; **Reject** keeps maintenance; **Approve** is required before `OUT_OF_SERVICE`.
+
+In the dashboard (API on 8081 + `npm run dev`):
+
+1. Click **Load critical demo**
+2. Open **Approvals** (or the CRITICAL banner on Fleet / incident)
+3. **Approve** → machine `OUT_OF_SERVICE`, or **Reject** → stays `MAINTENANCE_REQUIRED`
+
 ## Run Phase 1 / Phase 3 (AI agent)
 
 From `backend/`:
@@ -219,12 +239,12 @@ backend/
     services/
     api/                 # FastAPI: events, machines, incidents, demo, ...
     main.py
-  run_phase1.py … run_phase8.py
+  run_phase1.py … run_phase9.py
 
 frontend/
   src/
     api/client.ts
-    pages/               # Dashboard, Incident, Machine, WorkOrders, Activity
-    components/          # Layout, Timeline, Charts, StatusBadge
+    pages/               # Dashboard, Approvals, Incident, Machine, WorkOrders, Activity
+    components/          # Layout, CriticalBanner, Timeline, Charts, StatusBadge
     styles/
 ```

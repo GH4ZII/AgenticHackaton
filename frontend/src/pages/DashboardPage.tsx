@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, type DashboardSummary, type Incident, type Machine } from '../api/client'
+import {
+  api,
+  type ApprovalRequest,
+  type DashboardSummary,
+  type Incident,
+  type Machine,
+} from '../api/client'
+import { CriticalApprovalBanner } from '../components/CriticalBanner'
 import { StatusBadge } from '../components/StatusBadge'
 import '../styles/pages.css'
 
@@ -8,23 +15,34 @@ export function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [machines, setMachines] = useState<Machine[]>([])
   const [incidents, setIncidents] = useState<Incident[]>([])
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    Promise.all([api.dashboard(), api.machines(), api.incidents()])
-      .then(([dash, mach, inc]) => {
+  const load = useCallback(() => {
+    Promise.all([
+      api.dashboard(),
+      api.machines(),
+      api.incidents(),
+      api.pendingApprovals(),
+    ])
+      .then(([dash, mach, inc, pending]) => {
         setSummary(dash)
         setMachines(mach.machines)
         setIncidents(inc.incidents)
+        setApprovals(pending.approvals)
       })
       .catch((err: Error) => setError(err.message))
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   if (error) {
     return (
       <div className="page">
         <p className="error">
-          Could not load dashboard. Is the API running on port 8080?
+          Could not load dashboard. Is the API running on port 8081?
         </p>
         <p className="muted mono">{error}</p>
       </div>
@@ -40,6 +58,8 @@ export function DashboardPage() {
           you can see what the agent decided and why.
         </p>
       </section>
+
+      <CriticalApprovalBanner approvals={approvals} onResolved={load} />
 
       <section className="stats">
         <div className="stat">

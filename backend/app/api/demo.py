@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from fastapi import APIRouter
 
+from app.models.approval import ApprovalRequest, ApprovalStatus
 from app.models.incident import Incident, IncidentStatus, Severity
 from app.models.machine import MachineStatus
 from app.models.work_order import WorkOrder, WorkOrderStatus
@@ -144,4 +146,106 @@ def seed_demo_state() -> dict:
         "incident_count": len(store.list_incidents()),
         "work_order_count": len(store.list_work_orders()),
         "agent_action_count": len(store.list_agent_actions()),
+    }
+
+
+@router.post("/seed-critical")
+def seed_critical_demo() -> dict:
+    """Seed a CRITICAL incident + PENDING shutdown approval (no Gemini).
+
+    Lets the dashboard always exercise Approve / Reject without running the agent.
+    """
+    store = get_store()
+    seed_if_empty(store)
+
+    machine = store.get_machine("PUMP-04")
+    if machine is None:
+        return {"status": "error", "message": "PUMP-04 missing after seed"}
+
+    now = datetime.now(timezone.utc)
+    incident_id = f"INC-CRIT{uuid4().hex[:4].upper()}"
+    approval_id = f"APR-{uuid4().hex[:8].upper()}"
+
+    machine.status = MachineStatus.MAINTENANCE_REQUIRED
+    store.upsert_machine(machine)
+
+    # Close any prior open incident so get_open_incident stays unique.
+    open_existing = store.get_open_incident_for_machine("PUMP-04")
+    if open_existing is not None:
+        open_existing.status = IncidentStatus.RESOLVED
+        open_existing.resolved_at = now
+        store.add_incident(open_existing)
+
+    incident = Incident(
+        incident_id=incident_id,
+        machine_id="PUMP-04",
+        status=IncidentStatus.INVESTIGATING,
+        severity=Severity.CRITICAL,
+        suspected_failure="Imminent drive-end bearing seizure",
+        confidence=0.96,
+        detected_at=now,
+        trigger_reason=(
+            "CRITICAL: temperature 98.0 C and vibration 12.4 mm/s — "
+            "shutdown recommended pending human approval"
+        ),
+        agent_summary=(
+            "CRITICAL bearing failure risk. Work order created and technician "
+            "notified. Shutdown approval requested — machine was NOT shut down."
+        ),
+    )
+    store.add_incident(incident)
+
+    wo = WorkOrder(
+        work_order_id=f"WO-CRIT{uuid4().hex[:4].upper()}",
+        machine_id="PUMP-04",
+        incident_id=incident_id,
+        title="URGENT: Replace drive-end bearing — shutdown pending",
+        description=(
+            "CRITICAL severity. Replace bearing 6205-2RS immediately after "
+            "approved shutdown of PUMP-04."
+        ),
+        suspected_failure="Imminent drive-end bearing seizure",
+        priority="CRITICAL",
+        recommended_action="Approve shutdown, replace bearing, verify under load.",
+        required_parts=["6205-2RS"],
+        status=WorkOrderStatus.OPEN,
+        created_at=now,
+    )
+    store.upsert_work_order(wo)
+
+    approval = ApprovalRequest(
+        approval_id=approval_id,
+        incident_id=incident_id,
+        machine_id="PUMP-04",
+        reason=(
+            "CRITICAL telemetry: temperature and vibration far above limits. "
+            "Recommend controlled shutdown before bearing seizure."
+        ),
+        status=ApprovalStatus.PENDING,
+        created_at=now,
+    )
+    store.upsert_approval(approval)
+
+    store.add_agent_action(
+        {
+            "timestamp": now.isoformat().replace("+00:00", "Z"),
+            "machine_id": "PUMP-04",
+            "incident_id": incident_id,
+            "action": "shutdown_approval_requested",
+            "detail": (
+                f"CRITICAL shutdown recommended. Approval {approval_id} PENDING. "
+                "Machine was NOT shut down."
+            ),
+        }
+    )
+
+    return {
+        "status": "ok",
+        "machine_id": "PUMP-04",
+        "incident_id": incident_id,
+        "work_order_id": wo.work_order_id,
+        "approval_id": approval_id,
+        "approval_status": ApprovalStatus.PENDING.value,
+        "machine_status": machine.status.value,
+        "shutdown_executed": False,
     }

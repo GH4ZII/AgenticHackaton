@@ -16,6 +16,9 @@ const TONE: Record<string, string> = {
   HIGH: 'danger',
   CRITICAL: 'danger',
   URGENT: 'danger',
+  PENDING: 'warn',
+  APPROVED: 'ok',
+  REJECTED: 'neutral',
 }
 
 type Props = {

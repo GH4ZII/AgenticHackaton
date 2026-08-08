@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import { api } from './api/client'
 import { Layout } from './components/Layout'
 import { ActivityPage } from './pages/ActivityPage'
+import { ApprovalsPage } from './pages/ApprovalsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { IncidentDetailPage } from './pages/IncidentDetailPage'
 import { MachineDetailPage } from './pages/MachineDetailPage'
@@ -36,10 +37,35 @@ export default function App() {
     }
   }, [navigate])
 
+  const onSeedCritical = useCallback(async () => {
+    setSeeding(true)
+    setSeedMessage(null)
+    try {
+      const result = await api.seedCritical()
+      setSeedMessage(
+        `CRITICAL demo: ${result.approval_id} PENDING — machine not shut down`,
+      )
+      setRefreshKey((k) => k + 1)
+      navigate('/approvals')
+    } catch (err) {
+      setSeedMessage(
+        err instanceof Error ? err.message : 'Failed to load critical demo',
+      )
+    } finally {
+      setSeeding(false)
+    }
+  }, [navigate])
+
   return (
-    <Layout onSeedDemo={onSeedDemo} seeding={seeding} seedMessage={seedMessage}>
+    <Layout
+      onSeedDemo={onSeedDemo}
+      onSeedCritical={onSeedCritical}
+      seeding={seeding}
+      seedMessage={seedMessage}
+    >
       <Routes key={refreshKey}>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/incidents/:incidentId" element={<IncidentDetailPage />} />
         <Route path="/machines/:machineId" element={<MachineDetailPage />} />
         <Route path="/work-orders" element={<WorkOrdersPage />} />

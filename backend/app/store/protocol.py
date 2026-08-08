@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from app.models.approval import ApprovalRequest
 from app.models.incident import Incident
 from app.models.inventory import InventoryItem
 from app.models.machine import Machine
@@ -59,5 +60,11 @@ class DomainStore(Protocol):
     def add_agent_action(self, action: dict[str, Any]) -> dict[str, Any]: ...
 
     def list_agent_actions(self) -> list[dict[str, Any]]: ...
+
+    def upsert_approval(self, approval: ApprovalRequest) -> ApprovalRequest: ...
+
+    def get_approval(self, approval_id: str) -> ApprovalRequest | None: ...
+
+    def list_approvals(self) -> list[ApprovalRequest]: ...
 
     def clear(self) -> None: ...

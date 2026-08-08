@@ -3,10 +3,12 @@ import { Link, useParams } from 'react-router-dom'
 import {
   api,
   type AgentAction,
+  type ApprovalRequest,
   type Incident,
   type InventoryItem,
   type WorkOrder,
 } from '../api/client'
+import { CriticalApprovalBanner } from '../components/CriticalBanner'
 import { StatusBadge } from '../components/StatusBadge'
 import { Timeline } from '../components/Timeline'
 import '../styles/pages.css'
@@ -17,19 +19,22 @@ export function IncidentDetailPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
   const [actions, setActions] = useState<AgentAction[]>([])
   const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
   const load = () => {
     if (!incidentId) return Promise.resolve()
-    return api
-      .incident(incidentId)
-      .then((data) => {
+    return Promise.all([api.incident(incidentId), api.listApprovals()])
+      .then(([data, approvalData]) => {
         setIncident(data.incident)
         setWorkOrders(data.work_orders)
         setActions(data.agent_actions)
         setInventory(data.inventory)
+        setApprovals(
+          approvalData.approvals.filter((a) => a.incident_id === incidentId),
+        )
       })
       .catch((err: Error) => setError(err.message))
   }
@@ -86,6 +91,8 @@ export function IncidentDetailPage() {
           <StatusBadge value={incident.status} />
         </div>
       </section>
+
+      <CriticalApprovalBanner approvals={approvals} onResolved={() => void load()} />
 
       {message ? <p className="seed-msg mono">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}

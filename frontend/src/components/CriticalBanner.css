@@ -1,0 +1,90 @@
+.critical-banner {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(185, 28, 28, 0.35);
+  background:
+    linear-gradient(120deg, rgba(185, 28, 28, 0.12), transparent 60%),
+    var(--surface);
+  animation: rise 0.4s ease both;
+}
+
+.critical-banner-head {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.critical-banner-head strong {
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+  color: var(--danger);
+}
+
+.critical-list {
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+}
+
+.critical-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+
+.critical-list p {
+  margin: 0.35rem 0 0;
+  color: var(--ink-muted);
+  line-height: 1.45;
+  max-width: 40rem;
+}
+
+.critical-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.approve-btn,
+.reject-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.55rem 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.approve-btn {
+  background: var(--danger);
+  color: #fff8f8;
+}
+
+.reject-btn {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.approve-btn:hover:not(:disabled),
+.reject-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.approve-btn:disabled,
+.reject-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.critical-msg {
+  color: var(--teal-deep);
+  font-size: 0.85rem;
+  margin: 0;
+}

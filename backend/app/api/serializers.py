@@ -23,3 +23,7 @@ def telemetry_to_dict(sample: Any) -> dict[str, Any]:
 
 def inventory_to_dict(item: Any) -> dict[str, Any]:
     return item.model_dump(mode="json")
+
+
+def approval_to_dict(approval: Any) -> dict[str, Any]:
+    return approval.model_dump(mode="json")
