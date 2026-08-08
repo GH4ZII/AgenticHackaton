@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import timezone
 from uuid import uuid4
 
-from app.store.protocol import DomainStore
 from app.models.incident import Incident, IncidentStatus, Severity
 from app.models.machine import Machine, MachineStatus
 from app.models.telemetry import TelemetrySample
+from app.store.protocol import DomainStore
 
 
 @dataclass
@@ -17,6 +17,7 @@ class AnomalyResult:
     is_anomalous: bool
     reasons: list[str]
     incident: Incident | None = None
+    created: bool = False
 
 
 def _exceeded_limits(sample: TelemetrySample, machine: Machine) -> list[str]:
@@ -67,7 +68,7 @@ def detect_anomaly(
 
     reasons = _exceeded_limits(sample, machine)
     if not reasons:
-        return AnomalyResult(is_anomalous=False, reasons=[])
+        return AnomalyResult(is_anomalous=False, reasons=[], created=False)
 
     existing = store.get_open_incident_for_machine(machine.machine_id)
     if existing is not None:
@@ -75,6 +76,7 @@ def detect_anomaly(
             is_anomalous=True,
             reasons=reasons,
             incident=existing,
+            created=False,
         )
 
     incident = Incident(
@@ -93,7 +95,12 @@ def detect_anomaly(
     machine.status = MachineStatus.WARNING
     store.upsert_machine(machine)
 
-    return AnomalyResult(is_anomalous=True, reasons=reasons, incident=incident)
+    return AnomalyResult(
+        is_anomalous=True,
+        reasons=reasons,
+        incident=incident,
+        created=True,
+    )
 
 
 def evaluate_latest_for_machine(store: DomainStore, machine_id: str) -> AnomalyResult:

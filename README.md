@@ -41,6 +41,12 @@ Domain data can be stored in Cloud Firestore instead of process memory.
 
 Set `USE_FIRESTORE=true` in `backend/.env` so agent tools read/write Firestore. Restarting the backend then keeps machines, incidents, work orders, inventory, and agent actions.
 
+### Phase 5 — Full incident workflow (needs Gemini / GCP)
+
+Abnormal telemetry alone starts the agent — no manual «Investigate PUMP-04.» prompt.
+
+Flow: telemetry → anomaly detector → new incident → ADK agent auto-runs → diagnosis / inventory / work order / notification.
+
 ## Setup
 
 ```powershell
@@ -97,6 +103,16 @@ To make the agent use Firestore too, set in `.env`:
 USE_FIRESTORE=true
 ```
 
+## Run Phase 5 (auto workflow, no manual prompt)
+
+From `backend/`:
+
+```powershell
+python run_phase5.py
+```
+
+Expected: an abnormal PUMP-04 sample creates an incident and automatically invokes the agent (work order / notify / status). A second abnormal sample does not re-run the agent (idempotent).
+
 ## Run Phase 1 / Phase 3 (AI agent)
 
 From `backend/`:
@@ -134,11 +150,12 @@ backend/
   app/
     models/              # Machine, Telemetry, Incident, WorkOrder, Inventory
     store/               # MemoryStore + FirestoreStore
-    services/            # anomaly_detector + firestore_service
+    services/            # anomaly_detector, agent_runner, incident_workflow, firestore
     seed.py              # Fake PUMP-04 demo data
     runtime.py           # Shared store singleton (memory or Firestore)
   run_phase1.py
   run_phase2.py
   run_phase3.py
   run_phase4.py
+  run_phase5.py
 ```
