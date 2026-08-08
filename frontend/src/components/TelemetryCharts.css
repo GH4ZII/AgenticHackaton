@@ -1,0 +1,37 @@
+.charts {
+  display: grid;
+  gap: 1rem;
+}
+
+.chart-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1rem;
+  backdrop-filter: blur(8px);
+}
+
+.chart-panel header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.chart-panel h3 {
+  font-size: 1rem;
+}
+
+.chart-panel span {
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+}
+
+.chart-frame {
+  width: 100%;
+  min-height: 220px;
+}
+
+.empty {
+  color: var(--ink-muted);
+}

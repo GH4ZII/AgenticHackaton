@@ -51,6 +51,10 @@ Flow: telemetry → anomaly detector → new incident → ADK agent auto-runs �
 
 Simulator publishes telemetry to Google Pub/Sub topic `machine-telemetry-events`. Backend pulls (or receives push on `POST /events/telemetry`) and runs the Phase 5 workflow.
 
+### Phase 7 — Frontend dashboard
+
+React dashboard that shows fleet health, incident detail, agent activity timeline, work orders, and telemetry charts.
+
 ## Setup
 
 ```powershell
@@ -137,6 +141,26 @@ uvicorn app.main:app --reload --port 8080
 
 Then `POST /events/telemetry` with raw JSON or a Pub/Sub push envelope.
 
+## Run Phase 7 (dashboard)
+
+Terminal 1 — API (from `backend/`):
+
+```powershell
+$env:USE_FIRESTORE="false"
+uvicorn app.main:app --reload --port 8080
+```
+
+Terminal 2 — UI (from `frontend/`):
+
+```powershell
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`, click **Load demo state**, then open the incident page to see severity, agent summary, timeline, and work order.
+
+Vite proxies `/api` to `http://127.0.0.1:8080`.
+
 ## Run Phase 1 / Phase 3 (AI agent)
 
 From `backend/`:
@@ -166,23 +190,23 @@ Optional UI:
 adk web --port 8000
 ```
 
-## Project layout (backend)
+## Project layout
 
 ```text
 backend/
   maintenance_agent/     # ADK agent + tools
   app/
-    models/              # Machine, Telemetry, Incident, WorkOrder, Inventory
-    store/               # MemoryStore + FirestoreStore
-    services/            # anomaly, agent_runner, workflow, pubsub, simulator, firestore
-    api/                 # FastAPI routes (events)
-    main.py              # FastAPI app
-    seed.py              # Fake PUMP-04 demo data
-    runtime.py           # Shared store singleton (memory or Firestore)
-  run_phase1.py
-  run_phase2.py
-  run_phase3.py
-  run_phase4.py
-  run_phase5.py
-  run_phase6.py
+    models/
+    store/
+    services/
+    api/                 # FastAPI: events, machines, incidents, demo, ...
+    main.py
+  run_phase1.py … run_phase6.py
+
+frontend/
+  src/
+    api/client.ts
+    pages/               # Dashboard, Incident, Machine, WorkOrders, Activity
+    components/          # Layout, Timeline, Charts, StatusBadge
+    styles/
 ```
