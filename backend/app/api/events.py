@@ -68,7 +68,7 @@ async def receive_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
 
     store = get_store()
     try:
-        result = await handle_telemetry(store, sample)
+        result = await handle_telemetry(store, sample, wait_for_agent=False)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

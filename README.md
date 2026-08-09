@@ -8,6 +8,36 @@ This is **not** a chatbot. The goal is an event-driven flow:
 telemetry → anomaly detection → incident → agent investigates → actions
 ```
 
+## Architecture
+
+```mermaid
+flowchart TB
+  simulator[MachineSimulator]
+  pubsub[PubSub_or_POST_events]
+  cloudRun[CloudRun_FastAPI]
+  detector[AnomalyDetector]
+  adk[ADK_MaintenanceAgent]
+  gemini[Gemini_3_5_Flash_Vertex]
+  tools[AgentTools]
+  firestore[Firestore]
+  dashboard[ReactDashboard]
+
+  simulator --> pubsub --> cloudRun
+  cloudRun --> detector
+  detector -->|new_incident| adk
+  adk --> gemini
+  adk --> tools
+  tools --> firestore
+  cloudRun --> firestore
+  dashboard --> cloudRun
+```
+
+Full component notes, closed-loop flow, and safety policy: [docs/architecture.md](docs/architecture.md).
+
+## Hackathon submission
+
+Track: **Taskmaster**. Paste-ready project description: [docs/SUBMISSION.md](docs/SUBMISSION.md). Demo video is recorded separately.
+
 ## What exists so far
 
 ### Phase 1 — AI agent foundation (needs Gemini / GCP)
@@ -32,6 +62,8 @@ The agent can independently call several tools against the domain store:
 - `create_work_order`
 - `update_machine_status`
 - `notify_technician`
+- `request_shutdown_approval` (CRITICAL only — human must approve)
+- `resolve_incident` (after repair verification)
 
 You still only prompt with something like `Investigate PUMP-04.` — Gemini chooses which tools to use.
 
@@ -65,7 +97,7 @@ On **CRITICAL** severity the agent must call `request_shutdown_approval` — it 
 
 ### Phase 10 — Cloud deployment
 
-Backend + dashboard deploy to **Google Cloud Run** (same service). Firestore, Vertex AI (Gemini), and Pub/Sub push are wired in production.
+Backend + dashboard deploy to **Google Cloud Run** (same service). Firestore, Vertex AI (Gemini), and Pub/Sub push are wired in production. Push to `main` auto-deploys via GitHub Actions (Workload Identity).
 
 Live service (project `maintenance-agent-hack`, region `europe-west1`):
 
@@ -191,11 +223,14 @@ npm run dev
 
 Open `http://localhost:5173`.
 
+- **Start simulator** → live fleet telemetry on all machines; random failure ramps trigger the agent
 - **Load demo state** → incident page (severity, agent summary, timeline, work order)
 - **Work orders** → **Mark as completed** (closed loop / Phase 8)
 - **Load critical demo** → **Approvals** → Approve / Reject (Phase 9)
 
 Vite proxies `/api` to `http://127.0.0.1:8081`.
+
+With `USE_FIRESTORE=true`, startup ensures the full demo fleet exists (PUMP-04, CNC-02, FAN-01, CONV-03) even if Firestore already had a partial seed.
 
 ### Telemetry events
 
@@ -227,16 +262,23 @@ adk web --port 8000
 ## Project layout
 
 ```text
+docs/
+  architecture.md        # Mermaid architecture + component notes
+  SUBMISSION.md          # Paste-ready hackathon submission text
 Dockerfile               # Multi-stage: frontend build + FastAPI for Cloud Run
+.github/workflows/
+  deploy-cloudrun.yml    # Auto-deploy to Cloud Run on push to main
 deploy/
-  deploy-cloudrun.ps1    # Enable APIs, IAM, deploy, Pub/Sub push sub
+  deploy-cloudrun.ps1    # Manual: enable APIs, IAM, deploy, Pub/Sub push sub
+  setup-github-actions.ps1  # One-time WIF + deploy SA for GitHub Actions
 backend/
   maintenance_agent/     # ADK agent + tools
   app/
     models/
     store/               # MemoryStore + FirestoreStore
-    services/
-    api/                 # FastAPI: events, machines, incidents, demo, ...
+    services/            # anomaly, incident workflow, simulator, repair, ...
+    api/                 # FastAPI: events, machines, incidents, simulator, demo, ...
+    seed.py              # Fleet seed + ensure_fleet for Firestore
     main.py              # API + static dashboard in production
 frontend/
   src/

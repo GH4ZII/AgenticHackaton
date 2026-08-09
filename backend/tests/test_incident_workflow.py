@@ -81,3 +81,47 @@ async def test_new_incident_invokes_mocked_agent(store):
     actions = [a["action"] for a in store.list_agent_actions()]
     assert "investigation_started" in actions
     assert "investigation_finished" in actions
+
+
+@pytest.mark.asyncio
+async def test_background_agent_returns_before_finish(store):
+    """Simulator path: incident is visible immediately; agent finishes later."""
+    import asyncio
+
+    release = asyncio.Event()
+
+    async def slow_agent(machine_id, incident):
+        await release.wait()
+        return AgentRunResult(
+            prompt="test",
+            tool_calls=["get_machine_context"],
+            final_text="Done in background.",
+        )
+
+    with patch(
+        "app.services.incident_workflow.run_maintenance_agent",
+        new=slow_agent,
+    ):
+        result = await handle_telemetry(
+            store,
+            make_sample(temperature_c=86.0),
+            invoke_agent=True,
+            wait_for_agent=False,
+        )
+
+        assert result.agent_invoked is True
+        assert result.agent_pending is True
+        assert result.agent_result is None
+        assert result.incident is not None
+        assert result.incident.status == IncidentStatus.INVESTIGATING
+        assert store.get_incident(result.incident.incident_id) is not None
+
+        release.set()
+        await asyncio.sleep(0.05)
+
+    refreshed = store.get_incident(result.incident.incident_id)
+    assert refreshed is not None
+    assert "Done in background" in (refreshed.agent_summary or "")
+    actions = [a["action"] for a in store.list_agent_actions()]
+    assert "investigation_started" in actions
+    assert "investigation_finished" in actions

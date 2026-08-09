@@ -53,8 +53,9 @@ export function DashboardPage() {
   const [simBusy, setSimBusy] = useState(false)
   const [simMessage, setSimMessage] = useState<string | null>(null)
 
-  const load = useCallback(() => {
-    Promise.all([
+  const load = useCallback((opts?: { silent?: boolean }) => {
+    const silent = Boolean(opts?.silent)
+    return Promise.all([
       api.dashboard(),
       api.machines(),
       api.incidents(),
@@ -67,19 +68,26 @@ export function DashboardPage() {
         setIncidents(inc.incidents)
         setApprovals(pending.approvals)
         setSimStatus(sim)
+        if (!silent) setError(null)
       })
-      .catch((err: Error) => setError(err.message))
+      .catch((err: Error) => {
+        // Keep the last good snapshot during background polls so a blip
+        // does not wipe the dashboard while the agent is busy.
+        if (!silent) setError(err.message)
+      })
   }, [])
 
   useEffect(() => {
     load()
   }, [load])
 
+  // Always poll while the dashboard is open so new incidents / WARNING
+  // status appear without a manual refresh (agent may still be running).
   useEffect(() => {
-    if (!simStatus?.running) return
+    const intervalMs = simStatus?.running ? 1500 : 3000
     const id = window.setInterval(() => {
-      load()
-    }, 2000)
+      load({ silent: true })
+    }, intervalMs)
     return () => window.clearInterval(id)
   }, [simStatus?.running, load])
 

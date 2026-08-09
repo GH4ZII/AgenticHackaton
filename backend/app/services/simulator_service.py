@@ -264,6 +264,8 @@ async def _tick(store: DomainStore) -> None:
             store,
             sample,
             invoke_agent=_config.invoke_agent,
+            # Keep ticks + API responsive; incident appears before agent finishes.
+            wait_for_agent=False,
         )
 
     if _state.active_failures:

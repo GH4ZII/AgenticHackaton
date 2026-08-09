@@ -46,6 +46,9 @@ class MemoryStore:
         self.incidents[incident.incident_id] = incident
         return incident
 
+    def get_incident(self, incident_id: str) -> Incident | None:
+        return self.incidents.get(incident_id)
+
     def get_open_incident_for_machine(self, machine_id: str) -> Incident | None:
         normalized = machine_id.strip().upper()
         for incident in self.incidents.values():

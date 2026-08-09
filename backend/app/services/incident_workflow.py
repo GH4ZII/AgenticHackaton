@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -13,6 +15,11 @@ from app.services.anomaly_detector import AnomalyResult, detect_anomaly
 from app.services.incident_enrichment import enrich_incident_diagnosis
 from app.store.protocol import DomainStore
 
+logger = logging.getLogger(__name__)
+
+# Keep strong refs so background investigations are not garbage-collected.
+_background_tasks: set[asyncio.Task[None]] = set()
+
 
 @dataclass
 class WorkflowResult:
@@ -21,6 +28,7 @@ class WorkflowResult:
     agent_skipped_reason: str | None = None
     agent_result: AgentRunResult | None = None
     incident: Incident | None = None
+    agent_pending: bool = False
 
 
 def _now_iso() -> str:
@@ -32,15 +40,76 @@ def _update_incident(store: DomainStore, incident: Incident) -> Incident:
     return incident
 
 
+async def _complete_investigation(
+    store: DomainStore,
+    incident: Incident,
+) -> AgentRunResult:
+    """Run the agent and persist summary / finished action."""
+    agent_result = await run_maintenance_agent(incident.machine_id, incident)
+
+    # Re-load in case tools already mutated the incident.
+    current = store.get_incident(incident.incident_id) or incident
+    current.agent_summary = agent_result.final_text or (
+        "Agent finished without text summary. "
+        f"Tools called: {', '.join(agent_result.tool_calls) or 'none'}."
+    )
+    enrich_incident_diagnosis(store, current)
+    _update_incident(store, current)
+    store.add_agent_action(
+        {
+            "timestamp": _now_iso(),
+            "machine_id": current.machine_id,
+            "incident_id": current.incident_id,
+            "action": "investigation_finished",
+            "detail": (
+                f"Tools: {', '.join(agent_result.tool_calls) or 'none'}. "
+                f"Summary length: {len(current.agent_summary)} chars."
+            ),
+        }
+    )
+    return agent_result
+
+
+def _schedule_investigation(store: DomainStore, incident: Incident) -> None:
+    async def _runner() -> None:
+        try:
+            await _complete_investigation(store, incident)
+        except Exception:  # noqa: BLE001 — surface in logs; keep simulator alive
+            logger.exception(
+                "Background investigation failed for %s",
+                incident.incident_id,
+            )
+            store.add_agent_action(
+                {
+                    "timestamp": _now_iso(),
+                    "machine_id": incident.machine_id,
+                    "incident_id": incident.incident_id,
+                    "action": "investigation_failed",
+                    "detail": "Agent investigation failed; see server logs.",
+                }
+            )
+
+    task = asyncio.create_task(
+        _runner(),
+        name=f"investigate-{incident.incident_id}",
+    )
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
 async def handle_telemetry(
     store: DomainStore,
     sample: TelemetrySample,
     *,
     invoke_agent: bool = True,
+    wait_for_agent: bool = True,
 ) -> WorkflowResult:
     """Process one telemetry sample through detection and optional agent run.
 
     Agent runs only when a **new** incident is created (idempotent for repeats).
+
+    When ``wait_for_agent`` is False, the incident is persisted immediately and
+    the agent continues in the background so the API/UI stay responsive.
     """
     anomaly = detect_anomaly(store, sample)
     if not anomaly.is_anomalous or anomaly.incident is None:
@@ -76,32 +145,22 @@ async def handle_telemetry(
         }
     )
 
-    agent_result = await run_maintenance_agent(incident.machine_id, incident)
+    if not wait_for_agent:
+        _schedule_investigation(store, incident)
+        return WorkflowResult(
+            anomaly=anomaly,
+            agent_invoked=True,
+            agent_pending=True,
+            incident=incident,
+        )
 
-    incident.agent_summary = agent_result.final_text or (
-        "Agent finished without text summary. "
-        f"Tools called: {', '.join(agent_result.tool_calls) or 'none'}."
-    )
-    enrich_incident_diagnosis(store, incident)
-    _update_incident(store, incident)
-    store.add_agent_action(
-        {
-            "timestamp": _now_iso(),
-            "machine_id": incident.machine_id,
-            "incident_id": incident.incident_id,
-            "action": "investigation_finished",
-            "detail": (
-                f"Tools: {', '.join(agent_result.tool_calls) or 'none'}. "
-                f"Summary length: {len(incident.agent_summary)} chars."
-            ),
-        }
-    )
+    agent_result = await _complete_investigation(store, incident)
 
     return WorkflowResult(
         anomaly=anomaly,
         agent_invoked=True,
         agent_result=agent_result,
-        incident=incident,
+        incident=store.get_incident(incident.incident_id) or incident,
     )
 
 
@@ -111,6 +170,4 @@ def handle_telemetry_sync(
     **kwargs: Any,
 ) -> WorkflowResult:
     """Sync wrapper for scripts that prefer asyncio.run at the top level."""
-    import asyncio
-
     return asyncio.run(handle_telemetry(store, sample, **kwargs))
