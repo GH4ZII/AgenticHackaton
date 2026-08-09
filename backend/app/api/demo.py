@@ -250,3 +250,55 @@ def seed_critical_demo() -> dict:
         "machine_status": machine.status.value,
         "shutdown_executed": False,
     }
+
+
+@router.post("/clear-incidents")
+def clear_incidents() -> dict:
+    """Delete all incidents and related demo activity from the active store."""
+    from app.models.machine import MachineStatus
+    from app.models.work_order import WorkOrderStatus
+    from app.services import simulator_service as sim
+
+    store = get_store()
+
+    before = len(store.list_incidents())
+
+    # Memory store: wipe dicts directly when present.
+    if hasattr(store, "incidents") and isinstance(store.incidents, dict):
+        store.incidents.clear()
+    if hasattr(store, "agent_actions") and isinstance(store.agent_actions, list):
+        store.agent_actions.clear()
+    if hasattr(store, "approvals") and isinstance(store.approvals, dict):
+        store.approvals.clear()
+    if hasattr(store, "notifications") and isinstance(store.notifications, list):
+        store.notifications.clear()
+
+    # Firestore: delete collections.
+    if hasattr(store, "_delete_collection"):
+        store._delete_collection("incidents")
+        store._delete_collection("agent_actions")
+        store._delete_collection("approval_requests")
+        store._delete_collection("notifications")
+
+    for work_order in list(store.list_work_orders()):
+        if work_order.status not in {
+            WorkOrderStatus.COMPLETED,
+            WorkOrderStatus.CANCELLED,
+        }:
+            work_order.status = WorkOrderStatus.CANCELLED
+            store.upsert_work_order(work_order)
+
+    # Prefer simulator helper when machines are enumerable.
+    try:
+        sim.prepare_fleet(store)
+    except Exception:
+        for machine in getattr(store, "machines", {}).values() if hasattr(store, "machines") else []:
+            machine.status = MachineStatus.HEALTHY
+            store.upsert_machine(machine)
+
+    return {
+        "status": "ok",
+        "deleted_incidents": before,
+        "remaining_incidents": len(store.list_incidents()),
+        "remaining_agent_actions": len(store.list_agent_actions()),
+    }
