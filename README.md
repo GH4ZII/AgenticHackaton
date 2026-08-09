@@ -109,6 +109,28 @@ From the repo root (requires `gcloud` auth and billing):
 .\deploy\deploy-cloudrun.ps1
 ```
 
+### Auto-deploy from GitHub (push to `main`)
+
+One-time setup:
+
+```powershell
+$env:Path += ";$env:LOCALAPPDATA\Google\Cloud SDK\google-cloud-sdk\bin"
+.\deploy\setup-github-actions.ps1
+```
+
+Add the two printed values as GitHub Actions secrets on the repo:
+
+- `WIF_PROVIDER`
+- `WIF_SERVICE_ACCOUNT`
+
+(Repo → Settings → Secrets and variables → Actions)
+
+After that, every push to `main` runs [`.github/workflows/deploy-cloudrun.yml`](.github/workflows/deploy-cloudrun.yml) and updates:
+
+https://maintenance-agent-786907268086.europe-west1.run.app/
+
+You can also trigger **Actions → Deploy to Cloud Run → Run workflow**.
+
 Or manually:
 
 ```powershell

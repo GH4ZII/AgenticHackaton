@@ -78,13 +78,18 @@ $ServiceUrl = & $gcloud run services describe $ServiceName `
 Write-Host "==> Ensuring Pub/Sub topic + push subscription..."
 $topic = "machine-telemetry-events"
 $sub = "machine-telemetry-events-push"
-& $gcloud pubsub topics create $topic --project=$ProjectId 2>$null
+$ErrorActionPreference = "Continue"
+& $gcloud pubsub topics describe $topic --project=$ProjectId 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    & $gcloud pubsub topics create $topic --project=$ProjectId
+}
 & $gcloud pubsub subscriptions delete $sub --project=$ProjectId --quiet 2>$null
 & $gcloud pubsub subscriptions create $sub `
     --topic=$topic `
     --push-endpoint="$ServiceUrl/events/telemetry" `
     --ack-deadline=60 `
     --project=$ProjectId
+$ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "Deployed:"

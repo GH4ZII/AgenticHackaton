@@ -1,0 +1,67 @@
+# Deploy Maintenance Agent to Cloud Run on every push to main.
+#
+# One-time GCP + GitHub setup:
+#   .\deploy\setup-github-actions.ps1
+# Then add the printed secrets under GitHub → Settings → Secrets and variables → Actions.
+
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: maintenance-agent-hack
+  REGION: europe-west1
+  SERVICE: maintenance-agent
+  RUNTIME_SA: maintenance-agent-run@maintenance-agent-hack.iam.gserviceaccount.com
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run (from source)
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          source: .
+          flags: >-
+            --service-account=${{ env.RUNTIME_SA }}
+            --allow-unauthenticated
+            --min-instances=0
+            --max-instances=3
+            --cpu=1
+            --memory=1Gi
+            --timeout=300
+          env_vars: |
+            GOOGLE_GENAI_USE_VERTEXAI=TRUE
+            GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
+            GOOGLE_CLOUD_LOCATION=eu
+            USE_FIRESTORE=true
+
+      - name: Show service URL
+        run: |
+          echo "Deployed: ${{ steps.deploy.outputs.url }}"
+          echo "Health:   ${{ steps.deploy.outputs.url }}/health"
