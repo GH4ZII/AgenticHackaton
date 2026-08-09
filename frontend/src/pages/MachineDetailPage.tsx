@@ -30,8 +30,6 @@ export function MachineDetailPage() {
   const [actions, setActions] = useState<AgentAction[]>([])
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [forceBusy, setForceBusy] = useState(false)
-  const [forceMessage, setForceMessage] = useState<string | null>(null)
 
   const loadMachine = useCallback(
     (opts?: { silent?: boolean }) => {
@@ -112,27 +110,6 @@ export function MachineDetailPage() {
       (incident && incident.status !== 'INVESTIGATING' && incident.status !== 'OPEN'),
   )
 
-  const onForceAnomaly = async () => {
-    setForceBusy(true)
-    setForceMessage(null)
-    try {
-      const result = await api.forceAnomaly(machineId)
-      setForceMessage(
-        result.incident_id
-          ? `Live investigation started: ${result.incident_id}`
-          : 'Anomaly injected — waiting for incident…',
-      )
-      await loadMachine()
-      if (result.incident_id) await loadIncident(result.incident_id)
-    } catch (err) {
-      setForceMessage(
-        err instanceof Error ? err.message : 'Failed to force anomaly',
-      )
-    } finally {
-      setForceBusy(false)
-    }
-  }
-
   if (error && !machine) return <p className="error">{error}</p>
   if (!machine) return <p className="muted">Loading machine…</p>
 
@@ -155,21 +132,6 @@ export function MachineDetailPage() {
         <p className="demo-note">
           Telemetry is simulated · Gemini agent investigation runs live
         </p>
-        {machine.machine_id === 'PUMP-04' ? (
-          <div style={{ marginTop: '0.75rem' }}>
-            <button
-              type="button"
-              className="seed-btn"
-              disabled={forceBusy}
-              onClick={() => void onForceAnomaly()}
-            >
-              {forceBusy ? 'Injecting anomaly…' : 'Run live investigation'}
-            </button>
-            {forceMessage ? (
-              <p className="fleet-seed-msg mono">{forceMessage}</p>
-            ) : null}
-          </div>
-        ) : null}
       </section>
 
       {incident ? (
@@ -207,8 +169,8 @@ export function MachineDetailPage() {
           <h2>Agent investigation</h2>
           {!incident ? (
             <p className="muted">
-              Waiting for an anomaly. Start the simulator or run a live
-              investigation on PUMP-04.
+              Waiting for an anomaly. Start the simulator from the dashboard to
+              generate live telemetry.
             </p>
           ) : (
             <>

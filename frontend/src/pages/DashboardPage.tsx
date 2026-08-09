@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import {
   api,
   type ApprovalRequest,
@@ -41,14 +41,11 @@ function formatSimStatus(status: SimStatus | null): string {
 }
 
 export function DashboardPage() {
-  const navigate = useNavigate()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [machines, setMachines] = useState<Machine[]>([])
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [seeding, setSeeding] = useState(false)
-  const [seedMessage, setSeedMessage] = useState<string | null>(null)
   const [simStatus, setSimStatus] = useState<SimStatus | null>(null)
   const [simBusy, setSimBusy] = useState(false)
   const [simMessage, setSimMessage] = useState<string | null>(null)
@@ -90,65 +87,6 @@ export function DashboardPage() {
     }, intervalMs)
     return () => window.clearInterval(id)
   }, [simStatus?.running, load])
-
-  const onSeedDemo = useCallback(async () => {
-    setSeeding(true)
-    setSeedMessage(null)
-    try {
-      const result = await api.seedDemo()
-      setSeedMessage(
-        `Offline UI seed: ${result.incident_id} (no Gemini — for UI exploration only)`,
-      )
-      await load()
-      navigate(`/incidents/${result.incident_id}`)
-    } catch (err) {
-      setSeedMessage(
-        err instanceof Error ? err.message : 'Failed to load demo state',
-      )
-    } finally {
-      setSeeding(false)
-    }
-  }, [load, navigate])
-
-  const onLiveInvestigation = useCallback(async () => {
-    setSeeding(true)
-    setSeedMessage(null)
-    try {
-      const result = await api.forceAnomaly('PUMP-04')
-      setSeedMessage(
-        result.incident_id
-          ? `Live investigation started: ${result.incident_id} (Gemini agent running)`
-          : 'Anomaly injected — opening PUMP-04…',
-      )
-      await load()
-      navigate('/machines/PUMP-04')
-    } catch (err) {
-      setSeedMessage(
-        err instanceof Error ? err.message : 'Failed to start live investigation',
-      )
-    } finally {
-      setSeeding(false)
-    }
-  }, [load, navigate])
-
-  const onSeedCritical = useCallback(async () => {
-    setSeeding(true)
-    setSeedMessage(null)
-    try {
-      const result = await api.seedCritical()
-      setSeedMessage(
-        `CRITICAL demo: ${result.approval_id} PENDING — machine not shut down`,
-      )
-      await load()
-      navigate('/approvals')
-    } catch (err) {
-      setSeedMessage(
-        err instanceof Error ? err.message : 'Failed to load critical demo',
-      )
-    } finally {
-      setSeeding(false)
-    }
-  }, [load, navigate])
 
   const onStartSim = useCallback(async () => {
     setSimBusy(true)
@@ -263,9 +201,6 @@ export function DashboardPage() {
             {simMessage ? (
               <p className="fleet-seed-msg mono">{simMessage}</p>
             ) : null}
-            {seedMessage ? (
-              <p className="fleet-seed-msg mono">{seedMessage}</p>
-            ) : null}
           </div>
           <div className="fleet-sim-actions">
             {running ? (
@@ -299,14 +234,7 @@ export function DashboardPage() {
         </div>
         <div className="machine-grid">
           {machines.map((m) => (
-            <MachineCard
-              key={m.machine_id}
-              machine={m}
-              seeding={seeding}
-              onLiveInvestigation={onLiveInvestigation}
-              onSeedDemo={onSeedDemo}
-              onSeedCritical={onSeedCritical}
-            />
+            <MachineCard key={m.machine_id} machine={m} />
           ))}
         </div>
       </section>
@@ -327,8 +255,8 @@ export function DashboardPage() {
             {incidents.length === 0 ? (
               <tr>
                 <td colSpan={5} className="muted">
-                  No incidents yet. Use <strong>Run live investigation</strong> on
-                  PUMP-04 or start the simulator.
+                  No incidents yet. Start the simulator to generate live
+                  telemetry and investigations.
                 </td>
               </tr>
             ) : (
