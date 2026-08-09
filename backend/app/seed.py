@@ -11,8 +11,25 @@ from app.models.telemetry import TelemetrySample
 from app.store.memory_store import MemoryStore
 
 
+def _add_telemetry(
+    store: Any,
+    machine_id: str,
+    rows: list[tuple[str, float, float, float]],
+) -> None:
+    for ts, temp, vib, current in rows:
+        store.add_telemetry(
+            TelemetrySample(
+                machine_id=machine_id,
+                timestamp=datetime.fromisoformat(ts.replace("Z", "+00:00")),
+                temperature_c=temp,
+                vibration_mm_s=vib,
+                motor_current_a=current,
+            )
+        )
+
+
 def _seed_into(store: Any) -> Any:
-    """Write PUMP-04 demo data into any store with the domain API."""
+    """Write fleet + PUMP-04 demo data into any store with the domain API."""
     pump_04 = Machine(
         machine_id="PUMP-04",
         name="Cooling Water Pump 04",
@@ -20,31 +37,103 @@ def _seed_into(store: Any) -> Any:
         manufacturer="FlowTech Industrial",
         model="FT-C200",
         location="Plant A / Cooling Loop 2",
-        status=MachineStatus.WARNING,
+        status=MachineStatus.HEALTHY,
         temperature_limit=70.0,
         vibration_limit=4.5,
         motor_current_limit=12.5,
-        notes="Drive-end bearing area flagged for elevated vibration.",
+        notes="Drive-end bearing monitored; use simulator for live degradation.",
     )
     store.upsert_machine(pump_04)
 
-    telemetry_rows = [
-        ("2026-08-07T08:00:00Z", 62.0, 3.1, 11.0),
-        ("2026-08-07T09:00:00Z", 66.0, 3.8, 11.5),
-        ("2026-08-07T10:00:00Z", 71.0, 5.4, 12.8),
-        ("2026-08-07T11:00:00Z", 78.0, 7.2, 13.5),
-        ("2026-08-07T12:00:00Z", 86.0, 8.7, 14.0),
-    ]
-    for ts, temp, vib, current in telemetry_rows:
-        store.add_telemetry(
-            TelemetrySample(
-                machine_id="PUMP-04",
-                timestamp=datetime.fromisoformat(ts.replace("Z", "+00:00")),
-                temperature_c=temp,
-                vibration_mm_s=vib,
-                motor_current_a=current,
-            )
-        )
+    cnc_02 = Machine(
+        machine_id="CNC-02",
+        name="CNC Milling Center 02",
+        machine_type="cnc_mill",
+        manufacturer="Nordic Machining",
+        model="NM-4500",
+        location="Plant A / Machining Bay 1",
+        status=MachineStatus.HEALTHY,
+        temperature_limit=65.0,
+        vibration_limit=3.5,
+        motor_current_limit=18.0,
+        notes="Spindle and axis drives within normal operating band.",
+    )
+    store.upsert_machine(cnc_02)
+
+    fan_01 = Machine(
+        machine_id="FAN-01",
+        name="HVAC Exhaust Fan 01",
+        machine_type="industrial_fan",
+        manufacturer="AirCore Systems",
+        model="AC-EX90",
+        location="Plant A / Roof Vent Zone B",
+        status=MachineStatus.HEALTHY,
+        temperature_limit=55.0,
+        vibration_limit=4.0,
+        motor_current_limit=9.5,
+        notes="Belt-driven exhaust fan; last balance check passed.",
+    )
+    store.upsert_machine(fan_01)
+
+    conv_03 = Machine(
+        machine_id="CONV-03",
+        name="Parts Conveyor 03",
+        machine_type="conveyor",
+        manufacturer="LineDrive Automation",
+        model="LD-C320",
+        location="Plant A / Assembly Line 3",
+        status=MachineStatus.HEALTHY,
+        temperature_limit=60.0,
+        vibration_limit=3.0,
+        motor_current_limit=8.0,
+        notes="Variable-speed belt conveyor feeding assembly station 3.",
+    )
+    store.upsert_machine(conv_03)
+
+    _add_telemetry(
+        store,
+        "PUMP-04",
+        [
+            ("2026-08-07T08:00:00Z", 58.0, 2.8, 10.2),
+            ("2026-08-07T09:00:00Z", 59.5, 3.0, 10.5),
+            ("2026-08-07T10:00:00Z", 60.0, 3.1, 10.8),
+            ("2026-08-07T11:00:00Z", 59.0, 2.9, 10.4),
+            ("2026-08-07T12:00:00Z", 60.5, 3.2, 10.9),
+        ],
+    )
+    _add_telemetry(
+        store,
+        "CNC-02",
+        [
+            ("2026-08-07T08:00:00Z", 42.0, 1.4, 12.0),
+            ("2026-08-07T09:00:00Z", 44.0, 1.5, 12.4),
+            ("2026-08-07T10:00:00Z", 45.0, 1.6, 12.8),
+            ("2026-08-07T11:00:00Z", 43.0, 1.4, 12.2),
+            ("2026-08-07T12:00:00Z", 44.5, 1.5, 12.5),
+        ],
+    )
+    _add_telemetry(
+        store,
+        "FAN-01",
+        [
+            ("2026-08-07T08:00:00Z", 34.0, 2.0, 6.2),
+            ("2026-08-07T09:00:00Z", 35.0, 2.1, 6.4),
+            ("2026-08-07T10:00:00Z", 36.0, 2.2, 6.5),
+            ("2026-08-07T11:00:00Z", 35.5, 2.0, 6.3),
+            ("2026-08-07T12:00:00Z", 34.5, 2.1, 6.4),
+        ],
+    )
+    _add_telemetry(
+        store,
+        "CONV-03",
+        [
+            ("2026-08-07T08:00:00Z", 38.0, 1.2, 4.8),
+            ("2026-08-07T09:00:00Z", 39.0, 1.3, 5.0),
+            ("2026-08-07T10:00:00Z", 40.0, 1.3, 5.1),
+            ("2026-08-07T11:00:00Z", 39.5, 1.2, 4.9),
+            ("2026-08-07T12:00:00Z", 38.5, 1.2, 5.0),
+        ],
+    )
 
     store.upsert_inventory_item(
         InventoryItem(
@@ -136,10 +225,10 @@ def _seed_into(store: Any) -> Any:
 
 
 def seed_store(store: MemoryStore | None = None) -> MemoryStore:
-    """Populate an in-memory store with PUMP-04 demo data.
+    """Populate an in-memory store with fleet demo data.
 
-    Machine starts in WARNING because seed telemetry already shows
-    bearing-degradation readings above normal limits.
+    All machines (including PUMP-04) start HEALTHY with in-limit telemetry.
+    Use the live simulator or /api/demo/* shortcuts to introduce failures.
     """
     if store is None:
         store = MemoryStore()

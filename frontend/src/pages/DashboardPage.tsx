@@ -12,6 +12,34 @@ import { MachineCard } from '../components/MachineCard'
 import { StatusBadge } from '../components/StatusBadge'
 import '../styles/pages.css'
 
+type SimStatus = {
+  running: boolean
+  phase: string
+  ticks: number
+  started_at: string | null
+  active_failures: Array<{
+    machine_id: string
+    mode: string
+    progress: number
+  }>
+  last_error: string | null
+}
+
+function formatSimStatus(status: SimStatus | null): string {
+  if (!status?.running) {
+    if (status?.phase === 'stopped') return 'Simulator stopped'
+    if (status?.phase === 'idle') return 'Simulator idle'
+    return 'Simulator off'
+  }
+  if (!status.active_failures.length) {
+    return `Running · all healthy (tick ${status.ticks})`
+  }
+  const failing = status.active_failures
+    .map((f) => `${f.machine_id} (${f.mode.replaceAll('_', ' ')})`)
+    .join(', ')
+  return `Running · failing ${failing}`
+}
+
 export function DashboardPage() {
   const navigate = useNavigate()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
@@ -21,6 +49,9 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [seeding, setSeeding] = useState(false)
   const [seedMessage, setSeedMessage] = useState<string | null>(null)
+  const [simStatus, setSimStatus] = useState<SimStatus | null>(null)
+  const [simBusy, setSimBusy] = useState(false)
+  const [simMessage, setSimMessage] = useState<string | null>(null)
 
   const load = useCallback(() => {
     Promise.all([
@@ -28,12 +59,14 @@ export function DashboardPage() {
       api.machines(),
       api.incidents(),
       api.pendingApprovals(),
+      api.simulatorStatus(),
     ])
-      .then(([dash, mach, inc, pending]) => {
+      .then(([dash, mach, inc, pending, sim]) => {
         setSummary(dash)
         setMachines(mach.machines)
         setIncidents(inc.incidents)
         setApprovals(pending.approvals)
+        setSimStatus(sim)
       })
       .catch((err: Error) => setError(err.message))
   }, [])
@@ -41,6 +74,14 @@ export function DashboardPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    if (!simStatus?.running) return
+    const id = window.setInterval(() => {
+      load()
+    }, 2000)
+    return () => window.clearInterval(id)
+  }, [simStatus?.running, load])
 
   const onSeedDemo = useCallback(async () => {
     setSeeding(true)
@@ -82,6 +123,62 @@ export function DashboardPage() {
     }
   }, [load, navigate])
 
+  const onStartSim = useCallback(async () => {
+    setSimBusy(true)
+    setSimMessage(null)
+    try {
+      const result = await api.simulatorStart()
+      setSimMessage('Simulator started — fleet telemetry is live')
+      setSimStatus({
+        running: result.running,
+        phase: result.phase,
+        ticks: result.ticks,
+        started_at: result.started_at,
+        active_failures: result.active_failures,
+        last_error: null,
+      })
+      await load()
+    } catch (err) {
+      setSimMessage(
+        err instanceof Error ? err.message : 'Failed to start simulator',
+      )
+    } finally {
+      setSimBusy(false)
+    }
+  }, [load])
+
+  const onStopSim = useCallback(async () => {
+    setSimBusy(true)
+    setSimMessage(null)
+    try {
+      await api.simulatorStop()
+      setSimMessage('Simulator stopped')
+      await load()
+    } catch (err) {
+      setSimMessage(
+        err instanceof Error ? err.message : 'Failed to stop simulator',
+      )
+    } finally {
+      setSimBusy(false)
+    }
+  }, [load])
+
+  const onResetSim = useCallback(async () => {
+    setSimBusy(true)
+    setSimMessage(null)
+    try {
+      await api.simulatorReset()
+      setSimMessage('Fleet reset to healthy')
+      await load()
+    } catch (err) {
+      setSimMessage(
+        err instanceof Error ? err.message : 'Failed to reset simulator',
+      )
+    } finally {
+      setSimBusy(false)
+    }
+  }, [load])
+
   if (error) {
     return (
       <div className="page">
@@ -92,6 +189,8 @@ export function DashboardPage() {
       </div>
     )
   }
+
+  const running = Boolean(simStatus?.running)
 
   return (
     <div className="page">
@@ -126,10 +225,47 @@ export function DashboardPage() {
 
       <section className="fleet-section">
         <div className="fleet-section-head">
-          <h2>Machines</h2>
-          {seedMessage ? (
-            <p className="seed-msg mono fleet-seed-msg">{seedMessage}</p>
-          ) : null}
+          <div>
+            <h2>Machines</h2>
+            <p className="muted mono fleet-sim-status">
+              {formatSimStatus(simStatus)}
+            </p>
+            {simMessage ? (
+              <p className="fleet-seed-msg mono">{simMessage}</p>
+            ) : null}
+            {seedMessage ? (
+              <p className="fleet-seed-msg mono">{seedMessage}</p>
+            ) : null}
+          </div>
+          <div className="fleet-sim-actions">
+            {running ? (
+              <button
+                type="button"
+                className="seed-btn seed-btn-ghost"
+                onClick={onStopSim}
+                disabled={simBusy}
+              >
+                {simBusy ? 'Working…' : 'Stop simulator'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="seed-btn"
+                onClick={onStartSim}
+                disabled={simBusy}
+              >
+                {simBusy ? 'Working…' : 'Start simulator'}
+              </button>
+            )}
+            <button
+              type="button"
+              className="seed-btn seed-btn-ghost"
+              onClick={onResetSim}
+              disabled={simBusy}
+            >
+              Reset
+            </button>
+          </div>
         </div>
         <div className="machine-grid">
           {machines.map((m) => (
@@ -160,8 +296,8 @@ export function DashboardPage() {
             {incidents.length === 0 ? (
               <tr>
                 <td colSpan={5} className="muted">
-                  No incidents yet. Use &quot;Load demo state&quot; on a machine
-                  card.
+                  No incidents yet. Start the simulator or use demo buttons on
+                  PUMP-04.
                 </td>
               </tr>
             ) : (

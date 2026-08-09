@@ -143,6 +143,44 @@ export const api = {
       machine_status: string
       shutdown_executed: boolean
     }>('/api/demo/seed-critical', { method: 'POST' }),
+  simulatorStatus: () =>
+    request<{
+      running: boolean
+      phase: string
+      ticks: number
+      started_at: string | null
+      active_failures: Array<{
+        machine_id: string
+        mode: string
+        progress: number
+      }>
+      last_error: string | null
+    }>('/api/simulator/status'),
+  simulatorStart: () =>
+    request<{
+      status: string
+      running: boolean
+      phase: string
+      ticks: number
+      started_at: string | null
+      active_failures: Array<{
+        machine_id: string
+        mode: string
+        progress: number
+      }>
+    }>('/api/simulator/start', { method: 'POST' }),
+  simulatorStop: () =>
+    request<{
+      status: string
+      running: boolean
+      phase: string
+    }>('/api/simulator/stop', { method: 'POST' }),
+  simulatorReset: () =>
+    request<{
+      status: string
+      running: boolean
+      phase: string
+    }>('/api/simulator/reset', { method: 'POST' }),
   listApprovals: () =>
     request<{ approvals: ApprovalRequest[]; count: number }>('/api/approvals'),
   pendingApprovals: () =>

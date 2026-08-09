@@ -16,6 +16,7 @@ from app.api.events import router as events_router
 from app.api.incidents import router as incidents_router
 from app.api.machines import router as machines_router
 from app.api.ops import router as ops_router
+from app.api.simulator import router as simulator_router
 from app.api.work_orders import router as work_orders_router
 
 app = FastAPI(
@@ -57,6 +58,7 @@ app.include_router(work_orders_router)
 app.include_router(approvals_router)
 app.include_router(ops_router)
 app.include_router(demo_router)
+app.include_router(simulator_router)
 
 _static_dir = Path(os.getenv("STATIC_DIR", "static")).resolve()
 _index_html = _static_dir / "index.html"

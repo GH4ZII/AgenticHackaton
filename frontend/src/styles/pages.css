@@ -83,9 +83,31 @@
 }
 
 .fleet-seed-msg {
-  margin: 0;
+  margin: 0.35rem 0 0;
   color: var(--teal-deep);
   font-size: 0.85rem;
+}
+
+.fleet-sim-status {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.fleet-sim-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .fleet-sim-actions {
+    width: 100%;
+  }
+
+  .fleet-sim-actions .seed-btn {
+    flex: 1 1 auto;
+  }
 }
 
 .machine-grid {
