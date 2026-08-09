@@ -79,6 +79,7 @@ async def test_new_incident_invokes_mocked_agent(store):
     assert result.incident.status == IncidentStatus.INVESTIGATING
     assert "Bearing degradation" in (result.incident.agent_summary or "")
     actions = [a["action"] for a in store.list_agent_actions()]
+    assert "anomaly_detected" in actions
     assert "investigation_started" in actions
     assert "investigation_finished" in actions
 
@@ -90,7 +91,7 @@ async def test_background_agent_returns_before_finish(store):
 
     release = asyncio.Event()
 
-    async def slow_agent(machine_id, incident):
+    async def slow_agent(machine_id, incident, **kwargs):
         await release.wait()
         return AgentRunResult(
             prompt="test",

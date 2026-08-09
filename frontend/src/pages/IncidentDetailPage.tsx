@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import { Link, useParams } from 'react-router-dom'
 import {
@@ -11,10 +11,11 @@ import {
 } from '../api/client'
 import { CriticalApprovalBanner } from '../components/CriticalBanner'
 import { StatusBadge } from '../components/StatusBadge'
-import { Timeline } from '../components/Timeline'
+import { InvestigationTimeline } from '../components/Timeline'
 import { formatDateTime } from '../utils/formatDate'
 import { extractReasoning, sanitizeAgentText } from '../utils/agentText'
 import '../styles/pages.css'
+import '../components/Timeline.css'
 
 export function IncidentDetailPage() {
   const { incidentId = '' } = useParams()
@@ -27,24 +28,55 @@ export function IncidentDetailPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  const load = () => {
-    if (!incidentId) return Promise.resolve()
-    return Promise.all([api.incident(incidentId), api.listApprovals()])
-      .then(([data, approvalData]) => {
-        setIncident(data.incident)
-        setWorkOrders(data.work_orders)
-        setActions(data.agent_actions)
-        setInventory(data.inventory)
-        setApprovals(
-          approvalData.approvals.filter((a) => a.incident_id === incidentId),
-        )
-      })
-      .catch((err: Error) => setError(err.message))
-  }
+  const load = useCallback(
+    (opts?: { silent?: boolean }) => {
+      if (!incidentId) return Promise.resolve()
+      const silent = Boolean(opts?.silent)
+      return Promise.all([api.incident(incidentId), api.listApprovals()])
+        .then(([data, approvalData]) => {
+          setIncident(data.incident)
+          setWorkOrders(data.work_orders)
+          setActions(data.agent_actions)
+          setInventory(data.inventory)
+          setApprovals(
+            approvalData.approvals.filter((a) => a.incident_id === incidentId),
+          )
+          if (!silent) setError(null)
+        })
+        .catch((err: Error) => {
+          if (!silent) setError(err.message)
+        })
+    },
+    [incidentId],
+  )
 
   useEffect(() => {
     void load()
-  }, [incidentId])
+  }, [load])
+
+  const investigating = incident?.status === 'INVESTIGATING'
+
+  useEffect(() => {
+    if (!investigating) return
+    const id = window.setInterval(() => {
+      void load({ silent: true })
+    }, 800)
+    return () => window.clearInterval(id)
+  }, [investigating, load])
+
+  // Brief post-investigation poll so enrichment / WO land without refresh.
+  useEffect(() => {
+    if (investigating || !incident) return
+    if (incident.agent_summary && workOrders.length) return
+    const id = window.setInterval(() => {
+      void load({ silent: true })
+    }, 1000)
+    const stop = window.setTimeout(() => window.clearInterval(id), 15000)
+    return () => {
+      window.clearInterval(id)
+      window.clearTimeout(stop)
+    }
+  }, [investigating, incident, workOrders.length, load])
 
   const onComplete = async (workOrderId: string) => {
     setBusyId(workOrderId)
@@ -84,7 +116,7 @@ export function IncidentDetailPage() {
   const summaryText = incident.agent_summary
     ? sanitizeAgentText(incident.agent_summary)
     : null
-
+  const primaryWo = workOrders[0] ?? null
 
   return (
     <div className="page">
@@ -98,6 +130,9 @@ export function IncidentDetailPage() {
           <StatusBadge value={incident.severity} />
           <StatusBadge value={incident.status} />
         </div>
+        <p className="demo-note">
+          Telemetry may be simulated · agent investigation runs live via Gemini
+        </p>
       </section>
 
       <CriticalApprovalBanner approvals={approvals} onResolved={() => void load()} />
@@ -105,47 +140,77 @@ export function IncidentDetailPage() {
       {message ? <p className="seed-msg mono">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
 
+      {investigating ? (
+        <div className="investigation-banner">
+          <strong>⚠ Anomaly detected</strong>
+          <p>Maintenance Agent investigating…</p>
+        </div>
+      ) : null}
+
       <div className="split split-top">
         <section className="panel stack">
           <h2>Diagnosis</h2>
-          <div className="meta-grid">
-            <div>
-              <span>Suspected failure</span>
-              <strong>{incident.suspected_failure || '—'}</strong>
+          <div className="diagnosis-result">
+            <p className="result-headline">
+              {incident.suspected_failure ||
+                (investigating ? 'Diagnosis in progress…' : 'Pending diagnosis')}
+            </p>
+            <div className="meta-grid">
+              <div>
+                <span>Confidence</span>
+                <strong>
+                  {incident.confidence != null
+                    ? `${Math.round(incident.confidence * 100)}%`
+                    : '—'}
+                </strong>
+              </div>
+              <div>
+                <span>Severity / risk</span>
+                <strong>{incident.severity}</strong>
+              </div>
+              <div>
+                <span>Machine</span>
+                <strong>
+                  <Link to={`/machines/${incident.machine_id}`}>
+                    {incident.machine_id}
+                  </Link>
+                </strong>
+              </div>
+              <div>
+                <span>Evidence used</span>
+                <strong>{incident.trigger_reason}</strong>
+              </div>
             </div>
-            <div>
-              <span>Confidence</span>
-              <strong>
-                {incident.confidence != null
-                  ? `${Math.round(incident.confidence * 100)}%`
-                  : '—'}
-              </strong>
-            </div>
-            <div>
-              <span>Machine</span>
-              <strong>
-                <Link to={`/machines/${incident.machine_id}`}>
-                  {incident.machine_id}
-                </Link>
-              </strong>
-            </div>
-            <div>
-              <span>Trigger</span>
-              <strong>{incident.trigger_reason}</strong>
-            </div>
+            {primaryWo?.recommended_action ? (
+              <div>
+                <span className="muted">Recommended action</span>
+                <p style={{ margin: '0.25rem 0 0' }}>
+                  {primaryWo.recommended_action}
+                </p>
+              </div>
+            ) : null}
+            {primaryWo ? (
+              <p className="mono" style={{ margin: 0 }}>
+                ✓ Work Order {primaryWo.work_order_id} created
+              </p>
+            ) : null}
+            {reasoning ? (
+              <div className="reasoning-box">
+                <span>Reasoning</span>
+                <p>{reasoning}</p>
+              </div>
+            ) : null}
           </div>
-          {reasoning ? (
-            <div className="reasoning-box">
-              <span>Reasoning</span>
-              <p>{reasoning}</p>
-            </div>
-          ) : null}
         </section>
 
         <section className="panel stack">
           <h2>Related work orders</h2>
           {workOrders.length === 0 ? (
-            <p className="muted">No work orders linked yet.</p>
+            <p className="muted">
+              {investigating
+                ? 'Work order will appear when the agent creates one…'
+                : 'No work orders linked yet.'}
+            </p>
           ) : (
             workOrders.map((wo) => {
               const canComplete =
@@ -209,19 +274,23 @@ export function IncidentDetailPage() {
       </div>
 
       <section className="panel">
+        <h2>Agent activity</h2>
+        <InvestigationTimeline actions={actions} live />
+      </section>
+
+      <section className="panel">
         <h2>Agent summary</h2>
         {summaryText ? (
           <div className="summary-box markdown-body">
             <Markdown>{summaryText}</Markdown>
           </div>
         ) : (
-          <p className="muted">No summary yet.</p>
+          <p className="muted">
+            {investigating
+              ? 'Summary will appear when the agent finishes…'
+              : 'No summary yet.'}
+          </p>
         )}
-      </section>
-
-      <section className="panel">
-        <h2>Agent activity timeline</h2>
-        <Timeline actions={actions} />
       </section>
     </div>
   )

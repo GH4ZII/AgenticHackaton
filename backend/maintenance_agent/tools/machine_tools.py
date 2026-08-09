@@ -84,10 +84,12 @@ def update_machine_status(machine_id: str, status: str) -> dict:
         }
 
     store.upsert_machine(machine)
+    open_incident = store.get_open_incident_for_machine(machine.machine_id)
     store.add_agent_action(
         {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "machine_id": machine.machine_id,
+            "incident_id": open_incident.incident_id if open_incident else None,
             "action": "machine_status_updated",
             "detail": f"Machine status set to {machine.status.value}",
         }

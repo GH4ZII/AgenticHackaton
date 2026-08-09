@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, Query
 
 from app.runtime import get_store
 from app.services import simulator_service as sim
@@ -33,3 +35,20 @@ async def simulator_stop() -> dict:
 async def simulator_reset() -> dict:
     store = get_store()
     return await sim.reset_simulator(store)
+
+
+@router.post("/force-anomaly")
+async def simulator_force_anomaly(
+    machine_id: str = Query(default="PUMP-04"),
+    mode: Literal[
+        "bearing_degradation",
+        "overheating",
+        "imbalance",
+    ] = Query(default="bearing_degradation"),
+) -> dict:
+    """Inject anomalous telemetry and start a real Gemini investigation."""
+    store = get_store()
+    try:
+        return await sim.force_anomaly(store, machine_id, mode=mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

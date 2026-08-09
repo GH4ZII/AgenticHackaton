@@ -97,15 +97,34 @@ export function DashboardPage() {
     try {
       const result = await api.seedDemo()
       setSeedMessage(
-        `Demo ready: ${result.incident_id} (incident ${
-          result.created_incident ? 'created' : 'exists'
-        })`,
+        `Offline UI seed: ${result.incident_id} (no Gemini — for UI exploration only)`,
       )
       await load()
       navigate(`/incidents/${result.incident_id}`)
     } catch (err) {
       setSeedMessage(
         err instanceof Error ? err.message : 'Failed to load demo state',
+      )
+    } finally {
+      setSeeding(false)
+    }
+  }, [load, navigate])
+
+  const onLiveInvestigation = useCallback(async () => {
+    setSeeding(true)
+    setSeedMessage(null)
+    try {
+      const result = await api.forceAnomaly('PUMP-04')
+      setSeedMessage(
+        result.incident_id
+          ? `Live investigation started: ${result.incident_id} (Gemini agent running)`
+          : 'Anomaly injected — opening PUMP-04…',
+      )
+      await load()
+      navigate('/machines/PUMP-04')
+    } catch (err) {
+      setSeedMessage(
+        err instanceof Error ? err.message : 'Failed to start live investigation',
       )
     } finally {
       setSeeding(false)
@@ -208,6 +227,9 @@ export function DashboardPage() {
           Fleet health, open incidents, and autonomous maintenance actions — so
           you can see what the agent decided and why.
         </p>
+        <p className="demo-note">
+          Telemetry is simulated · Gemini agent investigation runs live
+        </p>
       </section>
 
       <CriticalApprovalBanner approvals={approvals} onResolved={load} />
@@ -281,6 +303,7 @@ export function DashboardPage() {
               key={m.machine_id}
               machine={m}
               seeding={seeding}
+              onLiveInvestigation={onLiveInvestigation}
               onSeedDemo={onSeedDemo}
               onSeedCritical={onSeedCritical}
             />
@@ -304,8 +327,8 @@ export function DashboardPage() {
             {incidents.length === 0 ? (
               <tr>
                 <td colSpan={5} className="muted">
-                  No incidents yet. Start the simulator or use demo buttons on
-                  PUMP-04.
+                  No incidents yet. Use <strong>Run live investigation</strong> on
+                  PUMP-04 or start the simulator.
                 </td>
               </tr>
             ) : (

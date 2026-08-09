@@ -6,6 +6,7 @@ import './MachineCard.css'
 type Props = {
   machine: Machine
   seeding?: boolean
+  onLiveInvestigation: () => void
   onSeedDemo: () => void
   onSeedCritical: () => void
 }
@@ -201,6 +202,7 @@ function MachineIllustration({ machine }: { machine: Machine }) {
 export function MachineCard({
   machine,
   seeding,
+  onLiveInvestigation,
   onSeedDemo,
   onSeedCritical,
 }: Props) {
@@ -238,19 +240,27 @@ export function MachineCard({
         <div className="machine-card-actions">
           <button
             type="button"
+            className="seed-btn"
+            onClick={onLiveInvestigation}
+            disabled={seeding}
+          >
+            {seeding ? 'Starting…' : 'Run live investigation'}
+          </button>
+          <button
+            type="button"
             className="seed-btn seed-btn-ghost"
             onClick={onSeedCritical}
             disabled={seeding}
           >
-            {seeding ? 'Loading…' : 'Load critical demo'}
+            {seeding ? 'Loading…' : 'Critical approval demo'}
           </button>
           <button
             type="button"
-            className="seed-btn"
+            className="seed-btn seed-btn-ghost"
             onClick={onSeedDemo}
             disabled={seeding}
           >
-            {seeding ? 'Loading…' : 'Load demo state'}
+            {seeding ? 'Loading…' : 'Offline UI seed'}
           </button>
         </div>
       ) : null}

@@ -340,3 +340,95 @@ async def reset_simulator(store: DomainStore) -> dict[str, Any]:
     _state.phase = "idle"
     _state.last_error = None
     return {"status": "reset", **get_status()}
+
+
+async def force_anomaly(
+    store: DomainStore,
+    machine_id: str = "PUMP-04",
+    *,
+    mode: FailureMode = "bearing_degradation",
+) -> dict[str, Any]:
+    """Inject climbing telemetry then a clear anomaly to start a live agent run.
+
+    Resolves any open incident on the machine first so a new investigation can
+    begin. Uses the real ``handle_telemetry`` workflow (Gemini/ADK in background).
+    """
+    from app.seed import seed_if_empty
+
+    seed_if_empty(store)
+    machine_id = machine_id.strip().upper()
+    machine = store.get_machine(machine_id)
+    if machine is None:
+        raise ValueError(f"Unknown machine_id: {machine_id}")
+
+    # Clear prior open work so a fresh incident is created.
+    existing = store.get_open_incident_for_machine(machine_id)
+    if existing is not None:
+        existing.status = IncidentStatus.RESOLVED
+        existing.resolved_at = _now()
+        store.add_incident(existing)
+
+    for work_order in store.list_work_orders():
+        if (
+            work_order.machine_id == machine_id
+            and work_order.status
+            not in {WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED}
+        ):
+            work_order.status = WorkOrderStatus.CANCELLED
+            store.upsert_work_order(work_order)
+
+    machine.status = MachineStatus.HEALTHY
+    store.upsert_machine(machine)
+
+    # Visible climb for the demo theater — stay under limits until the last sample
+    # so a single new incident is created and the real agent starts once.
+    climb: list[tuple[float, float, float]] = [
+        (0.65, 0.5, 0.6),
+        (0.78, 0.72, 0.72),
+        (0.88, 0.88, 0.82),
+        (0.96, 0.98, 0.92),
+        (1.18, 1.55, 1.12),  # clear multi-signal breach
+    ]
+    if mode == "overheating":
+        climb = [
+            (0.7, 0.45, 0.65),
+            (0.82, 0.55, 0.75),
+            (0.92, 0.7, 0.85),
+            (0.98, 0.85, 0.95),
+            (1.32, 1.05, 1.1),
+        ]
+    elif mode == "imbalance":
+        climb = [
+            (0.65, 0.55, 0.65),
+            (0.75, 0.75, 0.75),
+            (0.85, 0.9, 0.85),
+            (0.92, 0.98, 0.92),
+            (1.08, 1.42, 1.1),
+        ]
+
+    last_result = None
+    for t_mult, v_mult, c_mult in climb:
+        sample = TelemetrySample(
+            machine_id=machine_id,
+            timestamp=_now(),
+            temperature_c=round(machine.temperature_limit * t_mult, 2),
+            vibration_mm_s=round(machine.vibration_limit * v_mult, 2),
+            motor_current_a=round(machine.motor_current_limit * c_mult, 2),
+        )
+        last_result = await handle_telemetry(
+            store,
+            sample,
+            invoke_agent=True,
+            wait_for_agent=False,
+        )
+
+    incident = last_result.incident if last_result else None
+    return {
+        "status": "ok",
+        "machine_id": machine_id,
+        "mode": mode,
+        "incident_id": incident.incident_id if incident else None,
+        "agent_invoked": bool(last_result and last_result.agent_invoked),
+        "agent_pending": bool(last_result and last_result.agent_pending),
+        "trigger_reason": incident.trigger_reason if incident else None,
+    }

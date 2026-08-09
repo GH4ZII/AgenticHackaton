@@ -1,4 +1,4 @@
-"""Demo seed endpoint for UI without calling Gemini."""
+"""Demo seed endpoint for offline UI without calling Gemini."""
 
 from __future__ import annotations
 
@@ -19,10 +19,11 @@ router = APIRouter(prefix="/api/demo", tags=["demo"])
 
 @router.post("/seed")
 def seed_demo_state() -> dict:
-    """Ensure PUMP-04 demo data exists for the dashboard (no Gemini).
+    """Ensure PUMP-04 demo data exists for offline UI exploration (no Gemini).
 
     Creates a representative open incident, work order, and agent_actions
-    if they are missing — so judges can explore the UI immediately.
+    if they are missing — so judges can explore the UI without Vertex credentials.
+    Prefer ``POST /api/simulator/force-anomaly`` for the live agent demo.
     """
     store = get_store()
     seed_if_empty(store)

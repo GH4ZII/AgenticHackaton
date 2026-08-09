@@ -63,6 +63,10 @@ export type AgentAction = {
   incident_id?: string
   action?: string
   detail?: string
+  label?: string
+  status?: 'waiting' | 'running' | 'completed' | 'failed' | string
+  step_kind?: 'lifecycle' | 'tool' | 'result' | string
+  tool_name?: string
 }
 
 export type ApprovalRequest = {
@@ -181,6 +185,22 @@ export const api = {
       running: boolean
       phase: string
     }>('/api/simulator/reset', { method: 'POST' }),
+  forceAnomaly: (
+    machineId = 'PUMP-04',
+    mode: 'bearing_degradation' | 'overheating' | 'imbalance' = 'bearing_degradation',
+  ) =>
+    request<{
+      status: string
+      machine_id: string
+      mode: string
+      incident_id: string | null
+      agent_invoked: boolean
+      agent_pending: boolean
+      trigger_reason: string | null
+    }>(
+      `/api/simulator/force-anomaly?machine_id=${encodeURIComponent(machineId)}&mode=${encodeURIComponent(mode)}`,
+      { method: 'POST' },
+    ),
   listApprovals: () =>
     request<{ approvals: ApprovalRequest[]; count: number }>('/api/approvals'),
   pendingApprovals: () =>

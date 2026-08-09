@@ -47,10 +47,12 @@ def notify_technician(
         "channel": "simulated",
     }
     store.add_notification(notification)
+    open_incident = store.get_open_incident_for_machine(machine.machine_id)
     store.add_agent_action(
         {
             "timestamp": notification["created_at"],
             "machine_id": machine.machine_id,
+            "incident_id": open_incident.incident_id if open_incident else None,
             "action": "technician_notified",
             "detail": f"Notified {technician}: {message[:120]}",
         }

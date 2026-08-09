@@ -51,7 +51,6 @@ def get_incident(incident_id: str) -> dict:
         a
         for a in store.list_agent_actions()
         if a.get("incident_id") == incident.incident_id
-        or a.get("machine_id") == incident.machine_id
     ]
     actions.sort(key=lambda a: a.get("timestamp") or "")
 
