@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   api,
   type ApprovalRequest,
@@ -8,15 +8,19 @@ import {
   type Machine,
 } from '../api/client'
 import { CriticalApprovalBanner } from '../components/CriticalBanner'
+import { MachineCard } from '../components/MachineCard'
 import { StatusBadge } from '../components/StatusBadge'
 import '../styles/pages.css'
 
 export function DashboardPage() {
+  const navigate = useNavigate()
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [machines, setMachines] = useState<Machine[]>([])
   const [incidents, setIncidents] = useState<Incident[]>([])
   const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [seeding, setSeeding] = useState(false)
+  const [seedMessage, setSeedMessage] = useState<string | null>(null)
 
   const load = useCallback(() => {
     Promise.all([
@@ -37,6 +41,46 @@ export function DashboardPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  const onSeedDemo = useCallback(async () => {
+    setSeeding(true)
+    setSeedMessage(null)
+    try {
+      const result = await api.seedDemo()
+      setSeedMessage(
+        `Demo ready: ${result.incident_id} (incident ${
+          result.created_incident ? 'created' : 'exists'
+        })`,
+      )
+      await load()
+      navigate(`/incidents/${result.incident_id}`)
+    } catch (err) {
+      setSeedMessage(
+        err instanceof Error ? err.message : 'Failed to load demo state',
+      )
+    } finally {
+      setSeeding(false)
+    }
+  }, [load, navigate])
+
+  const onSeedCritical = useCallback(async () => {
+    setSeeding(true)
+    setSeedMessage(null)
+    try {
+      const result = await api.seedCritical()
+      setSeedMessage(
+        `CRITICAL demo: ${result.approval_id} PENDING — machine not shut down`,
+      )
+      await load()
+      navigate('/approvals')
+    } catch (err) {
+      setSeedMessage(
+        err instanceof Error ? err.message : 'Failed to load critical demo',
+      )
+    } finally {
+      setSeeding(false)
+    }
+  }, [load, navigate])
 
   if (error) {
     return (
@@ -80,33 +124,24 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <section className="panel">
-        <h2>Fleet</h2>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Machine</th>
-              <th>Type</th>
-              <th>Location</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {machines.map((m) => (
-              <tr key={m.machine_id}>
-                <td>
-                  <Link to={`/machines/${m.machine_id}`}>{m.machine_id}</Link>
-                  <div className="muted">{m.name}</div>
-                </td>
-                <td className="mono">{m.machine_type}</td>
-                <td>{m.location}</td>
-                <td>
-                  <StatusBadge value={m.status} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <section className="fleet-section">
+        <div className="fleet-section-head">
+          <h2>Machines</h2>
+          {seedMessage ? (
+            <p className="seed-msg mono fleet-seed-msg">{seedMessage}</p>
+          ) : null}
+        </div>
+        <div className="machine-grid">
+          {machines.map((m) => (
+            <MachineCard
+              key={m.machine_id}
+              machine={m}
+              seeding={seeding}
+              onSeedDemo={onSeedDemo}
+              onSeedCritical={onSeedCritical}
+            />
+          ))}
+        </div>
       </section>
 
       <section className="panel">
@@ -125,7 +160,8 @@ export function DashboardPage() {
             {incidents.length === 0 ? (
               <tr>
                 <td colSpan={5} className="muted">
-                  No incidents yet. Click &quot;Load demo state&quot;.
+                  No incidents yet. Use &quot;Load demo state&quot; on a machine
+                  card.
                 </td>
               </tr>
             ) : (

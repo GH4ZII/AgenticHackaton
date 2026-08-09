@@ -64,6 +64,72 @@
   margin-bottom: 0.85rem;
 }
 
+.fleet-section {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.fleet-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.fleet-section-head h2 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.fleet-seed-msg {
+  margin: 0;
+  color: var(--teal-deep);
+  font-size: 0.85rem;
+}
+
+.machine-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.activity-incident-panel {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.activity-incident-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.15rem;
+}
+
+.activity-incident-head h2 {
+  margin-bottom: 0.25rem;
+}
+
+.activity-incident-head h2 a {
+  color: var(--teal-deep);
+}
+
+.activity-incident-head h2 a:hover {
+  text-decoration: underline;
+}
+
+.activity-incident-meta {
+  font-size: 0.9rem;
+}
+
+.activity-incident-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;

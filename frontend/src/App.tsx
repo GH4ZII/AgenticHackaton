@@ -1,6 +1,4 @@
-import { useCallback, useState } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
-import { api } from './api/client'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { ActivityPage } from './pages/ActivityPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
@@ -11,59 +9,9 @@ import { WorkOrdersPage } from './pages/WorkOrdersPage'
 import './styles/tokens.css'
 
 export default function App() {
-  const navigate = useNavigate()
-  const [seeding, setSeeding] = useState(false)
-  const [seedMessage, setSeedMessage] = useState<string | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
-
-  const onSeedDemo = useCallback(async () => {
-    setSeeding(true)
-    setSeedMessage(null)
-    try {
-      const result = await api.seedDemo()
-      setSeedMessage(
-        `Demo ready: ${result.incident_id} (incident ${
-          result.created_incident ? 'created' : 'exists'
-        })`,
-      )
-      setRefreshKey((k) => k + 1)
-      navigate(`/incidents/${result.incident_id}`)
-    } catch (err) {
-      setSeedMessage(
-        err instanceof Error ? err.message : 'Failed to load demo state',
-      )
-    } finally {
-      setSeeding(false)
-    }
-  }, [navigate])
-
-  const onSeedCritical = useCallback(async () => {
-    setSeeding(true)
-    setSeedMessage(null)
-    try {
-      const result = await api.seedCritical()
-      setSeedMessage(
-        `CRITICAL demo: ${result.approval_id} PENDING — machine not shut down`,
-      )
-      setRefreshKey((k) => k + 1)
-      navigate('/approvals')
-    } catch (err) {
-      setSeedMessage(
-        err instanceof Error ? err.message : 'Failed to load critical demo',
-      )
-    } finally {
-      setSeeding(false)
-    }
-  }, [navigate])
-
   return (
-    <Layout
-      onSeedDemo={onSeedDemo}
-      onSeedCritical={onSeedCritical}
-      seeding={seeding}
-      seedMessage={seedMessage}
-    >
-      <Routes key={refreshKey}>
+    <Layout>
+      <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/incidents/:incidentId" element={<IncidentDetailPage />} />

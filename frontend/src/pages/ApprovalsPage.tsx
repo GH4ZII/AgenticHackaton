@@ -53,7 +53,7 @@ export function ApprovalsPage() {
             {approvals.length === 0 ? (
               <tr>
                 <td colSpan={5} className="muted">
-                  No approvals yet. Click &quot;Load critical demo&quot;.
+                  No approvals yet. Use &quot;Load critical demo&quot; on a machine card.
                 </td>
               </tr>
             ) : (

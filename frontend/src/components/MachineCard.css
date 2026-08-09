@@ -1,0 +1,256 @@
+.machine-card {
+  display: grid;
+  gap: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 1rem 1.1rem 1.1rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  animation: rise 0.55s ease both;
+}
+
+.machine-card-main {
+  display: grid;
+  gap: 0.75rem;
+  color: inherit;
+}
+
+.machine-card-main:hover .machine-card-header h3 {
+  color: var(--teal-deep);
+}
+
+.machine-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.machine-card-header h3 {
+  font-size: 1.15rem;
+  margin: 0 0 0.2rem;
+  transition: color 0.15s ease;
+}
+
+.machine-card-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.machine-card-loc {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+}
+
+.machine-visual {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 11.5rem;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 50% 40%, rgba(15, 118, 110, 0.16), transparent 62%),
+    linear-gradient(180deg, rgba(20, 33, 43, 0.04), rgba(20, 33, 43, 0.08));
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.live-chip {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.live-chip--on {
+  color: var(--ok);
+  border-color: rgba(21, 128, 61, 0.25);
+}
+
+.live-chip--off {
+  color: var(--ink-muted);
+}
+
+.live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.live-chip--on .live-dot {
+  box-shadow: 0 0 0 0 rgba(21, 128, 61, 0.45);
+  animation: livePulse 1.6s ease-out infinite;
+}
+
+.pump-svg {
+  width: min(100%, 220px);
+  height: auto;
+  transform-origin: center center;
+}
+
+.pump-impeller {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Running — soft spin + subtle vibration */
+.machine-card--running .pump-impeller {
+  animation: impellerSpin 2.4s linear infinite;
+}
+
+.machine-card--running .pump-svg {
+  animation: softVibrate 2.8s ease-in-out infinite;
+}
+
+.machine-card--running .pump-shaft {
+  animation: shaftGlow 2s ease-in-out infinite;
+}
+
+/* Stressed — amber cast + stronger shake */
+.machine-card--stressed .machine-visual {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(180, 83, 9, 0.22), transparent 62%),
+    linear-gradient(180deg, rgba(180, 83, 9, 0.06), rgba(20, 33, 43, 0.08));
+}
+
+.machine-card--stressed .pump-impeller {
+  animation: impellerSpin 1.1s linear infinite;
+}
+
+.machine-card--stressed .pump-svg {
+  animation: hardShake 0.45s ease-in-out infinite;
+}
+
+.machine-card--stressed .pump-casing,
+.machine-card--stressed .pump-motor {
+  filter: hue-rotate(-18deg) saturate(1.15);
+}
+
+/* Stopped — static, desaturated */
+.machine-card--stopped .machine-visual {
+  filter: grayscale(0.55) brightness(0.95);
+}
+
+.machine-card--stopped .pump-impeller,
+.machine-card--stopped .pump-svg,
+.machine-card--stopped .pump-shaft {
+  animation: none;
+}
+
+.machine-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.machine-card-actions .seed-btn {
+  flex: 1 1 auto;
+  min-width: 9rem;
+}
+
+.seed-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.7rem 1.1rem;
+  background: var(--ink);
+  color: #f7fafc;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.seed-btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.seed-btn-ghost:hover:not(:disabled) {
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--teal-deep);
+}
+
+.seed-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--teal-deep);
+}
+
+.seed-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+@keyframes impellerSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes softVibrate {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(0.5px, -0.5px);
+  }
+}
+
+@keyframes hardShake {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: translate(-1.5px, 0.5px) rotate(-0.4deg);
+  }
+  75% {
+    transform: translate(1.5px, -0.5px) rotate(0.4deg);
+  }
+}
+
+@keyframes shaftGlow {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(21, 128, 61, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(21, 128, 61, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(21, 128, 61, 0);
+  }
+}
+
+@media (max-width: 720px) {
+  .machine-card-actions {
+    flex-direction: column;
+  }
+
+  .machine-card-actions .seed-btn {
+    width: 100%;
+  }
+}
