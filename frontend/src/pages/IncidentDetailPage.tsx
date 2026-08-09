@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Markdown from 'react-markdown'
 import { Link, useParams } from 'react-router-dom'
 import {
   api,
@@ -11,6 +12,8 @@ import {
 import { CriticalApprovalBanner } from '../components/CriticalBanner'
 import { StatusBadge } from '../components/StatusBadge'
 import { Timeline } from '../components/Timeline'
+import { formatDateTime } from '../utils/formatDate'
+import { extractReasoning, sanitizeAgentText } from '../utils/agentText'
 import '../styles/pages.css'
 
 export function IncidentDetailPage() {
@@ -77,6 +80,11 @@ export function IncidentDetailPage() {
       needed.has(item.part_id.toLowerCase()) ||
       [...needed].some((n) => item.name.toLowerCase().includes(n)),
   )
+  const reasoning = extractReasoning(incident.agent_summary)
+  const summaryText = incident.agent_summary
+    ? sanitizeAgentText(incident.agent_summary)
+    : null
+
 
   return (
     <div className="page">
@@ -84,7 +92,7 @@ export function IncidentDetailPage() {
         <h1>{incident.incident_id}</h1>
         <p>
           {incident.machine_id} · detected{' '}
-          <span className="mono">{incident.detected_at}</span>
+          <span className="mono">{formatDateTime(incident.detected_at)}</span>
         </p>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <StatusBadge value={incident.severity} />
@@ -97,7 +105,7 @@ export function IncidentDetailPage() {
       {message ? <p className="seed-msg mono">{message}</p> : null}
       {error ? <p className="error">{error}</p> : null}
 
-      <div className="split">
+      <div className="split split-top">
         <section className="panel stack">
           <h2>Diagnosis</h2>
           <div className="meta-grid">
@@ -126,12 +134,12 @@ export function IncidentDetailPage() {
               <strong>{incident.trigger_reason}</strong>
             </div>
           </div>
-          <div>
-            <h2>Agent summary</h2>
-            <div className="summary-box">
-              {incident.agent_summary || 'No summary yet.'}
+          {reasoning ? (
+            <div className="reasoning-box">
+              <span>Reasoning</span>
+              <p>{reasoning}</p>
             </div>
-          </div>
+          ) : null}
         </section>
 
         <section className="panel stack">
@@ -143,11 +151,16 @@ export function IncidentDetailPage() {
               const canComplete =
                 wo.status === 'OPEN' || wo.status === 'IN_PROGRESS'
               return (
-                <div key={wo.work_order_id} className="stack">
+                <div key={wo.work_order_id} className="wo-card">
                   <strong className="mono">{wo.work_order_id}</strong>
                   <div>{wo.title}</div>
-                  <StatusBadge value={wo.priority} label={`Priority ${wo.priority}`} />
-                  <StatusBadge value={wo.status} />
+                  <div className="wo-badges">
+                    <StatusBadge
+                      value={wo.priority}
+                      label={`Priority ${wo.priority}`}
+                    />
+                    <StatusBadge value={wo.status} />
+                  </div>
                   <p className="muted">{wo.recommended_action}</p>
                   {canComplete ? (
                     <button
@@ -194,6 +207,17 @@ export function IncidentDetailPage() {
           )}
         </section>
       </div>
+
+      <section className="panel">
+        <h2>Agent summary</h2>
+        {summaryText ? (
+          <div className="summary-box markdown-body">
+            <Markdown>{summaryText}</Markdown>
+          </div>
+        ) : (
+          <p className="muted">No summary yet.</p>
+        )}
+      </section>
 
       <section className="panel">
         <h2>Agent activity timeline</h2>

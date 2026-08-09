@@ -1,4 +1,5 @@
 import type { AgentAction } from '../api/client'
+import { formatDateTime } from '../utils/formatDate'
 import './Timeline.css'
 
 type Props = {
@@ -18,7 +19,7 @@ export function Timeline({ actions }: Props) {
           <div className="timeline-body">
             <div className="timeline-meta">
               <strong>{(action.action || 'action').replaceAll('_', ' ')}</strong>
-              <span className="mono">{action.timestamp || '—'}</span>
+              <span className="mono">{formatDateTime(action.timestamp)}</span>
             </div>
             <p>{action.detail || 'No detail'}</p>
           </div>

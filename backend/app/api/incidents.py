@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.serializers import incident_to_dict, work_order_to_dict
 from app.runtime import get_store
+from app.services.incident_enrichment import enrich_incident_diagnosis
 
 router = APIRouter(prefix="/api", tags=["incidents"])
 
@@ -13,7 +14,10 @@ router = APIRouter(prefix="/api", tags=["incidents"])
 @router.get("/incidents")
 def list_incidents() -> dict:
     store = get_store()
-    incidents = [incident_to_dict(i) for i in store.list_incidents()]
+    incidents = []
+    for incident in store.list_incidents():
+        enrich_incident_diagnosis(store, incident)
+        incidents.append(incident_to_dict(incident))
     incidents.sort(key=lambda i: i.get("detected_at") or "", reverse=True)
     return {"incidents": incidents, "count": len(incidents)}
 
@@ -31,6 +35,8 @@ def get_incident(incident_id: str) -> dict:
             incident = store.get_incident(incident_id)
     if incident is None:
         raise HTTPException(status_code=404, detail=f"Incident '{incident_id}' not found")
+
+    enrich_incident_diagnosis(store, incident)
 
     related_wos = [
         work_order_to_dict(w)

@@ -27,7 +27,7 @@ FAILURE_MODES: tuple[FailureMode, ...] = (
 @dataclass
 class SimulatorConfig:
     tick_interval_s: float = 2.0
-    healthy_window_ticks: int = 6  # ~12s at 2s ticks
+    healthy_window_ticks: int = 3  # ~6s at 2s ticks
     fail_probability: float = 0.22  # chance per tick after window
     ramp_ticks: int = 16  # ~32s to exceed limits
     invoke_agent: bool = True

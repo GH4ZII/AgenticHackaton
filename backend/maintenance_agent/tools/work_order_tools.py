@@ -60,10 +60,20 @@ def create_work_order(
         created_at=datetime.now(timezone.utc),
     )
     store.upsert_work_order(work_order)
+
+    if incident_id:
+        incidents = {i.incident_id: i for i in store.list_incidents()}
+        incident = incidents.get(incident_id)
+        if incident is not None:
+            if not incident.suspected_failure and suspected_failure:
+                incident.suspected_failure = suspected_failure
+                store.add_incident(incident)
+
     store.add_agent_action(
         {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "machine_id": machine.machine_id,
+            "incident_id": incident_id,
             "action": "work_order_created",
             "detail": f"Work order {work_order.work_order_id} created: {title}",
         }

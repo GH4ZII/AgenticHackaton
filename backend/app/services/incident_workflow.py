@@ -10,6 +10,7 @@ from app.models.incident import Incident, IncidentStatus
 from app.models.telemetry import TelemetrySample
 from app.services.agent_runner import AgentRunResult, run_maintenance_agent
 from app.services.anomaly_detector import AnomalyResult, detect_anomaly
+from app.services.incident_enrichment import enrich_incident_diagnosis
 from app.store.protocol import DomainStore
 
 
@@ -81,6 +82,7 @@ async def handle_telemetry(
         "Agent finished without text summary. "
         f"Tools called: {', '.join(agent_result.tool_calls) or 'none'}."
     )
+    enrich_incident_diagnosis(store, incident)
     _update_incident(store, incident)
     store.add_agent_action(
         {

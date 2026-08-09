@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type WorkOrder } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
+import { formatDateTime } from '../utils/formatDate'
 import '../styles/pages.css'
 
 export function WorkOrdersPage() {
@@ -97,7 +98,7 @@ export function WorkOrdersPage() {
                     <td>
                       <StatusBadge value={wo.status} />
                     </td>
-                    <td className="mono">{wo.created_at}</td>
+                    <td className="mono">{formatDateTime(wo.created_at)}</td>
                     <td>
                       {canComplete ? (
                         <button

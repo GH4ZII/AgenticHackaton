@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { TelemetrySample } from '../api/client'
+import { formatTime } from '../utils/formatDate'
 import './TelemetryCharts.css'
 
 type Props = {
@@ -20,21 +21,10 @@ type Props = {
   }
 }
 
-function shortTime(value: string) {
-  try {
-    return new Date(value).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return value
-  }
-}
-
 export function TelemetryCharts({ samples, limits }: Props) {
   const data = samples.map((s) => ({
     ...s,
-    label: shortTime(s.timestamp),
+    label: formatTime(s.timestamp),
   }))
 
   if (!data.length) {
